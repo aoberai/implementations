@@ -1,8 +1,5 @@
-*.h5
-*.png
-*.jpg
-*.txt
-*.npy
 credentials.py
 venv/
 __pycache__
+*.npz
+logs/

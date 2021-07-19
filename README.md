@@ -16,3 +16,6 @@ Notice how the model learned a number of important characteristics of tropical b
 - Sand generated around the coast, proportionally sound relative to water
 
 - Coast shows some green, learning from the dataset that beaches are commonly surrounded by trees and other greenery.
+
+
+# stock-timeseries-prediction

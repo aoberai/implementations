@@ -31,7 +31,7 @@ print("\n\n\n\nStarting Training Process\n\n\n")
 # Batch and shuffle the data
 train_dataset = tf.data.Dataset.from_tensor_slices(x_train).shuffle(60000).batch(128)
 
-latent_space_dims = 100
+latent_space_dims = 40
 
 print(np.shape(x_train))
 

@@ -6,13 +6,11 @@ import cv2
 import numpy as np
 import time
 
-(_ , _), (x_test, _) = tf.keras.datasets.mnist.load_data()
-x_test = x_test.reshape(x_test.shape[0], 28, 28, 1).astype('float32')
-x_test = x_test / 255.
 
-encoder = tf.keras.models.load_model("encoder.h5")
-decoder = tf.keras.models.load_model("decoder.h5")
+encoder = tf.keras.models.load_model("generator.h5")
 
+
+noise = tf.random.normal([num_examples_to_generate, noise_dim])
 for i in range(0, len(x_test)):
     image = x_test[i]
     print("Original Image Shape", np.shape(image))

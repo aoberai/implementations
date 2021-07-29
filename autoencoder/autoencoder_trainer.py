@@ -107,7 +107,7 @@ def train(dataset, epochs=10):
             for image_batch in dataset:
               loss_average.append(np.mean(train_step(image_batch).numpy()))
               counter+=1
-              print('Epoch Completed: {0:3f}'.format(counter / (60000/128)), end='\r')
+              print('Epoch Completed: {0:3f}'.format(counter / dataset.__len__().numpy()), end='\r')
 
             validation_loss.append((x_test - decoder_model.predict(encoder_model.predict(x_test))**2).mean())
             training_loss.append(np.mean(np.array(loss_average)))

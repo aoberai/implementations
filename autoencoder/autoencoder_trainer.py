@@ -1,6 +1,6 @@
 
 # An implementation of an autoencoder in Tensorflow
-# https://learnopencv.com/autoencoder-in-tensorflow-2-beginners-guide/#intro-auto
+# TODO: Add real time plotting
 
 import tensorflow as tf
 from tensorflow import keras
@@ -13,9 +13,9 @@ import time
 
 (x_train, _), (x_test, _) = tf.keras.datasets.mnist.load_data()
 x_train = x_train.reshape(x_train.shape[0], 28, 28, 1).astype('float32')
-# x_test = x_test.astype('float32')
+x_test = x_test.reshape(x_test.shape[0], 28, 28, 1).astype('float32')
 x_train = x_train / 255.
-# x_test = x_test / 255.
+x_test = x_test / 255.
 
 
 print("\n\n\n Press Control-C to start Training")
@@ -36,15 +36,15 @@ latent_space_dims = 100
 print(np.shape(x_train))
 
 def encoder(input_shape, output_latent_space_dims):
-  input = Input(shape=input_shape)
-  x = layers.Conv2D(32, 3, activation='relu', padding='same')(input)
+  inputs = Input(shape=input_shape)
+  x = layers.Conv2D(32, 3, activation='relu', padding='same')(inputs)
   x = layers.BatchNormalization()(x)
   x = layers.LeakyReLU()(x)
   x = layers.Flatten()(x)
   # Bottleneck
   output = layers.Dense(output_latent_space_dims)(x)
 
-  encoder = Model(input, output, name="Encoder")
+  encoder = Model(inputs, output, name="Encoder")
 
   print(encoder.summary())
   
@@ -54,15 +54,15 @@ encoder_model = encoder((28, 28, 1), latent_space_dims)
 
 def decoder(output_shape, input_latent_space_dims):
   decoder = Sequential()
-  input = Input(shape=input_latent_space_dims)
-  x = layers.Dense(output_shape[0] * output_shape[1])(input)
+  inputs = Input(shape=input_latent_space_dims)
+  x = layers.Dense(output_shape[0] * output_shape[1])(inputs)
   x = tf.keras.layers.Reshape((28, 28, 1), input_shape=(784,))(x)
   x = layers.Conv2DTranspose(32, kernel_size=3, activation='relu', padding='same')(x)
   x = layers.BatchNormalization()(x)
   x = layers.LeakyReLU()(x)
   output = layers.Conv2DTranspose(1, kernel_size=3, activation='sigmoid', padding='same')(x)
 
-  decoder = Model(input, output, name="Decoder")
+  decoder = Model(inputs, output, name="Decoder")
   print(decoder.summary())
 
   return decoder
@@ -96,6 +96,8 @@ def train_step(images):
     return loss
 
 def train(dataset, epochs=10):
+    validation_loss = []
+    training_loss = []
     try:
         for epoch in range(epochs):
             start_time = time.time()
@@ -105,10 +107,17 @@ def train(dataset, epochs=10):
             for image_batch in dataset:
               loss_average.append(np.mean(train_step(image_batch).numpy()))
               counter+=1
-              # print('Iteration {}'.format(counter / (60000/128)), end='\r')
+              print('Epoch Completed: {0:3f}'.format(counter / (60000/128)), end='\r')
 
-            print('\nTime for epoch {} is {} sec; loss : {} counter : {}'.format(epoch + 1, time.time()-start_time, np.mean(np.array(loss_average)), counter))
+            validation_loss.append((x_test - decoder_model.predict(encoder_model.predict(x_test))**2).mean())
+            training_loss.append(np.mean(np.array(loss_average)))
+            print('\nTime for epoch {} is {} sec; Training loss : {} Validation Loss: {} Counter : {}'.format(epoch + 1, time.time()-start_time, training_loss[-1], validation_loss[-1], counter))
             print("\n\n\nPress Control C to stop training")
+            # ymax = 5 * (validation_loss[-1])
+            # plt.scatter(epoch, validation_loss[-1])
+            # plt.ylim(0, ymax)
+            # plt.pause(0.05)
+        # plt.show()
 
     except KeyboardInterrupt:
         input()

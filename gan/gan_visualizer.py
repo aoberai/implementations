@@ -7,25 +7,28 @@ import numpy as np
 import time
 
 
-encoder = tf.keras.models.load_model("generator.h5")
+generator = tf.keras.models.load_model("generator.h5", compile=False)
 
+noise_dim = 100
 
-noise = tf.random.normal([num_examples_to_generate, noise_dim])
-for i in range(0, len(x_test)):
-    image = x_test[i]
-    print("Original Image Shape", np.shape(image))
-    cv2.imshow("Original Image", cv2.resize(image, (360, 360)))
-    encoded_image = encoder.predict(np.expand_dims(image, 0))
-    print("Image squeezed to encoded shape: ", np.shape(encoded_image))
-    # print(encoded_image)
-    generated_image = cv2.resize(decoder.predict(encoded_image)[0,:,:,:], (360, 360))
+counter = 0
+while True:
+    noise = np.expand_dims(tf.random.normal([noise_dim]).numpy(), 0)
+
+    generated_image = generator.predict(noise)
+
+    # print(generated_image)
+
+    # print(type(generated_image))
     # print(np.shape(generated_image))
-    cv2.imshow("Generated Image", generated_image)
+    # exit(0)
+
+    cv2.imshow("Original Image", generated_image[0,:,:,:])
     cv2.waitKey(1)
 
-    if i != 0:
+    if counter != 0:
         input() # wait till enter pressed to load next image
+    counter += 1
 
-    # time.sleep(3)
 
 

@@ -116,7 +116,7 @@ def train_step(images):
     generator_optimizer.apply_gradients(zip(gradients_of_generator, generator_model.trainable_variables))
     discriminator_optimizer.apply_gradients(zip(gradients_of_discriminator, discriminator_model.trainable_variables))
 
-    return generator_loss + discriminator_loss
+    return generator_loss
     # return {"generator_loss": generator_loss.numpy(), "discriminator_loss": discriminator_loss.numpy()}
 
 

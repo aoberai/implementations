@@ -4,12 +4,12 @@ import random
 import numpy as np
 import time
 
-(x_train, _), (x_test, _) = tf.keras.datasets.mnist.load_data()
+(x_train, _), (_, _) = tf.keras.datasets.mnist.load_data()
 
 image_shape = (28, 28, 1)
-x_train = x_test.reshape(x_test.shape[0], image_shape[0], image_shape[1], image_shape[2]).astype('float32')
+x_train = x_train.reshape(x_train.shape[0], image_shape[0], image_shape[1], image_shape[2]).astype('float32')
 x_train = x_train / 255.
-x_test = x_test / 255.
+# x_test = x_test / 255.
 # x_train = list(x_train)
 
 # for image in range(0, len(x_train)):
@@ -22,6 +22,9 @@ train_dataset = tf.data.Dataset.from_tensor_slices(x_train).shuffle(60000).batch
 def generator(noise_shape, output_shape):
     inputs = tf.keras.layers.Input(shape = noise_shape)
     x = tf.keras.layers.Dense(output_shape[0] * output_shape[1])(inputs)
+    x = tf.keras.layers.BatchNormalization()(x)
+    x = tf.keras.layers.LeakyReLU()(x)
+
     x = tf.keras.layers.Reshape((output_shape[0], output_shape[1], 1), input_shape=(output_shape[0] * output_shape[1],))(x)
     x = tf.keras.layers.Conv2DTranspose(128, kernel_size=5, padding='same')(x)
     x = tf.keras.layers.BatchNormalization()(x)
@@ -43,25 +46,27 @@ def generator(noise_shape, output_shape):
 
     return generator
 
-def discriminator(input_shape, output_shape):
+def discriminator(input_shape, output_size):
     inputs = tf.keras.layers.Input(shape = input_shape)
     x = tf.keras.layers.Conv2D(32, kernel_size=5, padding='same')(inputs)
     x = tf.keras.layers.BatchNormalization()(x)
     x = tf.keras.layers.LeakyReLU()(x)
+    x = tf.keras.layers.Dropout(0.2)(x)
     
     x = tf.keras.layers.Conv2D(64, kernel_size=5, padding='same')(inputs)
     x = tf.keras.layers.BatchNormalization()(x)
     x = tf.keras.layers.LeakyReLU()(x)
-
+    x = tf.keras.layers.Dropout(0.2)(x)
 
     x = tf.keras.layers.Conv2D(128, kernel_size=5, padding='same')(inputs)
     x = tf.keras.layers.BatchNormalization()(x)
     x = tf.keras.layers.LeakyReLU()(x)
 
+
     x = tf.keras.layers.Flatten()(x)
 
     x = tf.keras.layers.Dense(32)(x)
-    outputs = tf.keras.layers.Dense(2)(x)
+    outputs = tf.keras.layers.Dense(output_size)(x)
 
     discriminator = tf.keras.models.Model(inputs, outputs)
 
@@ -73,7 +78,7 @@ noise_dim = 100
 
 generator_model = generator((noise_dim,), image_shape)
 
-discriminator_model = discriminator(image_shape, (2,))
+discriminator_model = discriminator(image_shape, 1)
 
 print("Created Model")
 
@@ -88,14 +93,8 @@ def generator_loss_function(fake_output):
     # generator wants discriminator to think generated images are real
     return cross_entropy(tf.ones_like(fake_output), fake_output)
 
-generator_optimizer = tf.keras.optimizers.Adam(1e-3)
-discriminator_optimizer = tf.keras.optimizers.Adam(1e-3)
-
-num_examples_to_generate = 16
-
-
-# print(noise.numpy())
-
+generator_optimizer = tf.keras.optimizers.Adam(1e-4)
+discriminator_optimizer = tf.keras.optimizers.Adam(1e-4)
 
 @tf.function
 def train_step(images):

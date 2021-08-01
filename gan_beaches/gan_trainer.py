@@ -5,25 +5,35 @@ import time
 import time
 import constants
 
+# Configuring gpus for memory growth
+gpus = tf.config.list_physical_devices('GPU')
+if gpus:
+    try:
+        # Currently, memory growth needs to be the same across GPUs
+        for gpu in gpus:
+            tf.config.experimental.set_memory_growth(gpu, True)
+            logical_gpus = tf.config.list_logical_devices('GPU')
+            print(len(gpus), "Physical GPUs,", len(logical_gpus), "Logical GPUs")
+    except RuntimeError as e:
+        # Memory growth must be set before GPUs have been initialized
+        print(e)
 
-dataset_images = np.load('beaches.npy', mmap_mode = 'r')
+dataset_images_mmap = np.load('beaches.npy', mmap_mode = 'r')
 
-BATCH_SIZE = 128
-
-print("Beaches dataset size:", len(dataset_images))
+BATCH_SIZE = 8
 
 def data_generator():
-    for i in range(0, len(dataset_images)):
-        yield dataset_images[i]
+    for i in range(0, len(dataset_images_mmap)):
+        yield dataset_images_mmap[i]
 
 # train_dataset = tf.data.Dataset.from_tensor_slices(dataset_images).batch(BATCH_SIZE)
-total_dataset = tf.data.Dataset.from_generator(generator=data_generator, output_signature=(tf.TensorSpec(shape=constants.image_shape, dtype=np.float32)))
-total_dataset.batch(BATCH_SIZE).cache()
+total_dataset = tf.data.Dataset.from_generator(generator=data_generator, output_signature=(tf.TensorSpec(shape=(constants.image_shape[1], constants.image_shape[0], 3,), dtype=np.float32)))
 
-validation_set_size = int(len(dataset_images) * 0.2)
+validation_set_size = int(len(dataset_images_mmap) * 0.2)
 
 val_dataset = total_dataset.take(validation_set_size).prefetch(buffer_size=tf.data.experimental.AUTOTUNE)
-train_dataset = total_dataset.skip(validation_set_size).prefetch(buffer_size=tf.data.experimental.AUTOTUNE)
+train_dataset = total_dataset.skip(validation_set_size).batch(BATCH_SIZE).prefetch(buffer_size=tf.data.experimental.AUTOTUNE)
+
 
 def generator(noise_shape, output_shape):
     inputs = tf.keras.layers.Input(shape = noise_shape)
@@ -32,10 +42,6 @@ def generator(noise_shape, output_shape):
     x = tf.keras.layers.LeakyReLU()(x)
 
     x = tf.keras.layers.Reshape((output_shape[0], output_shape[1], 1), input_shape=(output_shape[0] * output_shape[1],))(x)
-    x = tf.keras.layers.Conv2DTranspose(128, kernel_size=5, padding='same')(x)
-    x = tf.keras.layers.BatchNormalization()(x)
-    x = tf.keras.layers.LeakyReLU()(x)
-
     x = tf.keras.layers.Conv2DTranspose(64, kernel_size=5, padding='same')(x)
     x = tf.keras.layers.BatchNormalization()(x)
     x = tf.keras.layers.LeakyReLU()(x)
@@ -62,17 +68,13 @@ def discriminator(input_shape, output_size):
     x = tf.keras.layers.Conv2D(64, kernel_size=5, padding='same')(inputs)
     x = tf.keras.layers.BatchNormalization()(x)
     x = tf.keras.layers.LeakyReLU()(x)
-    x = tf.keras.layers.Dropout(0.2)(x)
-
-    x = tf.keras.layers.Conv2D(128, kernel_size=5, padding='same')(inputs)
-    x = tf.keras.layers.BatchNormalization()(x)
-    x = tf.keras.layers.LeakyReLU()(x)
+    # x = tf.keras.layers.Dropout(0.2)(x)
 
 
     x = tf.keras.layers.Flatten()(x)
-
-    x = tf.keras.layers.Dense(32)(x)
+    x = tf.keras.layers.Dense(16)(x)
     outputs = tf.keras.layers.Dense(output_size)(x)
+
 
     discriminator = tf.keras.models.Model(inputs, outputs)
 
@@ -82,14 +84,15 @@ def discriminator(input_shape, output_size):
 
 noise_dim = 100
 
-print("\n\n\n\nSize of dataset", len(dataset_images))
+# print("\n\n\n\nSize of dataset", len(dataset_images))
 
-generator_model = generator((noise_dim,), constants.image_shape)
-discriminator_model = discriminator(constants.image_shape, 1)
+generator_model = generator((noise_dim,), (constants.image_shape[1], constants.image_shape[0], 3,))
+discriminator_model = discriminator((constants.image_shape[1], constants.image_shape[0], 3,), 1)
 
 print("Created Model")
 
 cross_entropy = tf.keras.losses.BinaryCrossentropy(from_logits=True)
+
 
 def discriminator_loss_function(real_output, fake_output):
     real_loss = cross_entropy(tf.ones_like(real_output), real_output)
@@ -128,16 +131,25 @@ def train_step(images):
 
 def train(dataset, epochs=10):
     try:
+        dataset_len = None
         training_loss = []
         for epoch in range(epochs):
             start_time = time.time()
             loss_average = []
             counter = 0
+            iterator = train_dataset.as_numpy_iterator()
+            # print(np.shape(next(iterator)))
+            
+            while True:
+              try:
+                image_batch = next(iterator)
+                loss_average.append(train_step(image_batch))
+                counter+=1
+                print('Epoch Completed: %0.3f Loss: %0.5f' % (counter / 1 if dataset_len is None else counter / dataset_len, np.mean(np.array(loss_average))), end='\r')
+              except StopIteration:
+                  break
 
-            for image_batch in dataset:
-              loss_average.append(train_step(image_batch))
-              counter+=1
-              print('Epoch Completed: %0.3f Loss: %0.5f' % (counter / dataset.__len__().numpy(), np.mean(np.array(loss_average))), end='\r')
+            dataset_len = counter
 
             training_loss.append(np.mean(np.array(loss_average)))
             print('\nTime for epoch {} is {} sec; Training loss : {} Counter : {}'.format(epoch + 1, time.time()-start_time, training_loss[-1], counter))

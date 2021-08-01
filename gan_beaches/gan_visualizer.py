@@ -4,10 +4,10 @@ from tensorflow import keras
 from tensorflow.keras import Model, Input, Sequential, layers
 import cv2
 import numpy as np
-import time
+import constants
 
 
-generator = tf.keras.models.load_model("generator.h5", compile=False)
+generator = tf.keras.models.load_model("generatorepoch30.h5", compile=False)
 
 noise_dim = 100
 
@@ -23,7 +23,7 @@ while True:
     # print(np.shape(generated_image))
     # exit(0)
 
-    cv2.imshow("Original Image", generated_image[0,:,:,:])
+    cv2.imshow("Original Image", cv2.resize(generated_image[0,:,:,:], (constants.image_shape[0]*2, constants.image_shape[1]*2)))
     cv2.waitKey(1)
 
     if counter != 0:

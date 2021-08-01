@@ -7,7 +7,7 @@ import numpy as np
 import time
 
 
-generator = tf.keras.models.load_model("generator.h5", compile=False)
+generator = tf.keras.models.load_model("generator_fashionmnist.h5", compile=False)
 
 noise_dim = 100
 

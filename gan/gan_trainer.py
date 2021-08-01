@@ -4,7 +4,7 @@ import random
 import numpy as np
 import time
 
-(x_train, _), (_, _) = tf.keras.datasets.mnist.load_data()
+(x_train, _), (_, _) = tf.keras.datasets.fashion_mnist.load_data()
 
 image_shape = (28, 28, 1)
 x_train = x_train.reshape(x_train.shape[0], image_shape[0], image_shape[1], image_shape[2]).astype('float32')

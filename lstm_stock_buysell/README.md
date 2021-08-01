@@ -18,10 +18,4 @@ Notice how the model learned a number of important characteristics of tropical b
 - Coast shows some green, learning from the dataset that beaches are commonly surrounded by trees and other greenery.
 
 
-## Stock State Prediction
-
-Uses lstm to predict whether should buy, sell, or hold stock based on predicted state of stock in next x minutes.
-
-It can be used to test if common day trading patterns exist broadly over a range of tech stocks which can successfully prove to serve as a long-term profitable trading strategy. If there is a high enough model accuracy, we are given evidence against the random walk hypothesis.
-
-At the moment, the accuracy is not great on the model which could be attributable to the random walk hypothesis. 
+# stock-timeseries-prediction

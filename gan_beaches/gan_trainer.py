@@ -36,27 +36,23 @@ train_dataset = total_dataset.skip(validation_set_size).batch(BATCH_SIZE).prefet
 
 def generator(noise_shape, output_shape):
     inputs = tf.keras.layers.Input(shape = noise_shape)
-    x = tf.keras.layers.Dense(output_shape[0] * output_shape[1] * 256)(inputs)
+    x = tf.keras.layers.Dense(output_shape[0] * output_shape[1] * 4)(inputs)
     x = tf.keras.layers.BatchNormalization()(x)
     x = tf.keras.layers.LeakyReLU()(x)
 
-    x = tf.keras.layers.Reshape((output_shape[0], output_shape[1], 256), input_shape=(output_shape[0] * output_shape[1],))(x)
-    x = tf.keras.layers.Conv2DTranspose(128, kernel_size=5, strides=(1, 1), padding='same')(x)
-    x = tf.keras.layers.BatchNormalization()(x)
-    x = tf.keras.layers.LeakyReLU()(x)
-
-    x = tf.keras.layers.Conv2DTranspose(64, kernel_size=5, strides=(2, 2), padding='same')(x)
-    x = tf.keras.layers.BatchNormalization()(x)
-    x = tf.keras.layers.LeakyReLU()(x)
+    x = tf.keras.layers.Reshape((output_shape[0]//4, output_shape[1]//4, 64,))(x)
 
     x = tf.keras.layers.Conv2DTranspose(32, kernel_size=5, strides=(2, 2), padding='same')(x)
+    x = tf.keras.layers.BatchNormalization()(x)
+    x = tf.keras.layers.LeakyReLU()(x)
+
+    x = tf.keras.layers.Conv2DTranspose(16, kernel_size=5, strides=(2, 2), padding='same')(x)
     x = tf.keras.layers.BatchNormalization()(x)
     x = tf.keras.layers.LeakyReLU()(x)
 
     outputs = tf.keras.layers.Conv2DTranspose(output_shape[2], kernel_size=5, padding='same', activation='tanh')(x)
 
     generator = tf.keras.models.Model(inputs, outputs)
-
 
     assert generator.output_shape == (None,) + output_shape
 

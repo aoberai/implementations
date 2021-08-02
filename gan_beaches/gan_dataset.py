@@ -36,7 +36,7 @@ def preprocessing(image):
     return image
 
 
-dataset_path = "/home/aoberai/programming/ml-datasets/beaches/"
+dataset_path = "/home/ubuntu/beaches/"
 dataset_images_path = os.listdir(dataset_path)
 dataset_images = []
 

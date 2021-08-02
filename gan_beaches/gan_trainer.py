@@ -26,7 +26,6 @@ def data_generator():
     for i in range(0, len(dataset_images_mmap)):
         yield dataset_images_mmap[i]
 
-# train_dataset = tf.data.Dataset.from_tensor_slices(dataset_images).batch(BATCH_SIZE)
 total_dataset = tf.data.Dataset.from_generator(generator=data_generator, output_signature=(tf.TensorSpec(shape=(constants.image_shape[1], constants.image_shape[0], 3,), dtype=np.float32)))
 
 validation_set_size = int(len(dataset_images_mmap) * 0.2)
@@ -37,22 +36,27 @@ train_dataset = total_dataset.skip(validation_set_size).batch(BATCH_SIZE).prefet
 
 def generator(noise_shape, output_shape):
     inputs = tf.keras.layers.Input(shape = noise_shape)
-    x = tf.keras.layers.Dense(output_shape[0] * output_shape[1])(inputs)
+    x = tf.keras.layers.Dense(output_shape[0] * output_shape[1] * 256)(inputs)
     x = tf.keras.layers.BatchNormalization()(x)
     x = tf.keras.layers.LeakyReLU()(x)
 
-    x = tf.keras.layers.Reshape((output_shape[0], output_shape[1], 1), input_shape=(output_shape[0] * output_shape[1],))(x)
-    x = tf.keras.layers.Conv2DTranspose(64, kernel_size=5, padding='same')(x)
+    x = tf.keras.layers.Reshape((output_shape[0], output_shape[1], 256), input_shape=(output_shape[0] * output_shape[1],))(x)
+    x = tf.keras.layers.Conv2DTranspose(128, kernel_size=5, strides=(1, 1), padding='same')(x)
     x = tf.keras.layers.BatchNormalization()(x)
     x = tf.keras.layers.LeakyReLU()(x)
 
-    x = tf.keras.layers.Conv2DTranspose(32, kernel_size=5, padding='same')(x)
+    x = tf.keras.layers.Conv2DTranspose(64, kernel_size=5, strides=(2, 2), padding='same')(x)
     x = tf.keras.layers.BatchNormalization()(x)
     x = tf.keras.layers.LeakyReLU()(x)
 
-    outputs = tf.keras.layers.Conv2DTranspose(output_shape[2], kernel_size=5, padding='same')(x)
+    x = tf.keras.layers.Conv2DTranspose(32, kernel_size=5, strides=(2, 2), padding='same')(x)
+    x = tf.keras.layers.BatchNormalization()(x)
+    x = tf.keras.layers.LeakyReLU()(x)
+
+    outputs = tf.keras.layers.Conv2DTranspose(output_shape[2], kernel_size=5, padding='same', activation='tanh')(x)
 
     generator = tf.keras.models.Model(inputs, outputs)
+
 
     assert generator.output_shape == (None,) + output_shape
 
@@ -60,21 +64,19 @@ def generator(noise_shape, output_shape):
 
 def discriminator(input_shape, output_size):
     inputs = tf.keras.layers.Input(shape = input_shape)
-    x = tf.keras.layers.Conv2D(32, kernel_size=5, padding='same')(inputs)
+    x = tf.keras.layers.Conv2D(32, kernel_size=5, strides=(2, 2), padding='same')(inputs)
     x = tf.keras.layers.BatchNormalization()(x)
     x = tf.keras.layers.LeakyReLU()(x)
-    x = tf.keras.layers.Dropout(0.2)(x)
-    
+    x = tf.keras.layers.Dropout(0.3)(x)
+
     x = tf.keras.layers.Conv2D(64, kernel_size=5, padding='same')(inputs)
     x = tf.keras.layers.BatchNormalization()(x)
     x = tf.keras.layers.LeakyReLU()(x)
-    # x = tf.keras.layers.Dropout(0.2)(x)
+    x = tf.keras.layers.Dropout(0.3)(x)
 
 
     x = tf.keras.layers.Flatten()(x)
-    x = tf.keras.layers.Dense(16)(x)
     outputs = tf.keras.layers.Dense(output_size)(x)
-
 
     discriminator = tf.keras.models.Model(inputs, outputs)
 
@@ -103,7 +105,7 @@ def generator_loss_function(fake_output):
     # generator wants discriminator to think generated images are real
     return cross_entropy(tf.ones_like(fake_output), fake_output)
 
-generator_optimizer = tf.keras.optimizers.Adam(1e-4)
+generator_optimizer = tf.keras.optimizers.Adam(5e-5)
 discriminator_optimizer = tf.keras.optimizers.Adam(1e-4)
 
 @tf.function
@@ -129,7 +131,7 @@ def train_step(images):
     # return {"generator_loss": generator_loss.numpy(), "discriminator_loss": discriminator_loss.numpy()}
 
 
-def train(dataset, epochs=10):
+def train(epochs=10, epoch_save_checkpoint=10):
     try:
         dataset_len = None
         training_loss = []
@@ -138,8 +140,6 @@ def train(dataset, epochs=10):
             loss_average = []
             counter = 0
             iterator = train_dataset.as_numpy_iterator()
-            # print(np.shape(next(iterator)))
-            
             while True:
               try:
                 image_batch = next(iterator)
@@ -154,11 +154,9 @@ def train(dataset, epochs=10):
             training_loss.append(np.mean(np.array(loss_average)))
             print('\nTime for epoch {} is {} sec; Training loss : {} Counter : {}'.format(epoch + 1, time.time()-start_time, training_loss[-1], counter))
             print("\n\n\nPress Control C to stop training")
-            # ymax = 5 * (validation_loss[-1])
-            # plt.scatter(epoch, validation_loss[-1])
-            # plt.ylim(0, ymax)
-            # plt.pause(0.05)
-        # plt.show()
+
+            if epoch % epoch_save_checkpoint == 0:
+                generator_model.save("generator_epoch%d.h5" % epoch)
 
     except KeyboardInterrupt:
         input()
@@ -167,11 +165,12 @@ def train(dataset, epochs=10):
         if save_model == 'yes':
             print("Saving model")
 
-            generator_model.save("generator.h5")
-            discriminator_model.save("discriminator.h5")
+            generator_model.save("generator_final.h5")
+            discriminator_model.save("discriminator_final.h5")
 
 
+epoch_save_checkpoint = 10 # save model every 10 epochs
 print("\n\n\n\n Starting Training ... \n\n\n")
-train(train_dataset, epochs=50)
+train(epochs=50, epoch_save_checkpoint=epoch_save_checkpoint)
 
 

@@ -123,32 +123,32 @@ def train_step(images):
     generator_optimizer.apply_gradients(zip(gradients_of_generator, generator_model.trainable_variables))
     discriminator_optimizer.apply_gradients(zip(gradients_of_discriminator, discriminator_model.trainable_variables))
 
-    return generator_loss
-    # return {"generator_loss": generator_loss.numpy(), "discriminator_loss": discriminator_loss.numpy()}
+    return (generator_loss, discriminator_loss)
 
 
 def train(epochs=10, epoch_save_checkpoint=10):
     try:
         dataset_len = None
-        training_loss = []
         for epoch in range(epochs):
+            generator_loss = []
+            discriminator_loss = []
             start_time = time.time()
-            loss_average = []
             counter = 0
             iterator = train_dataset.as_numpy_iterator()
             while True:
               try:
                 image_batch = next(iterator)
-                loss_average.append(train_step(image_batch))
+                loss = train_step(image_batch)
+                generator_loss.append(loss[0])
+                discriminator_loss.append(loss[1])
                 counter+=1
-                print('Epoch Completed: %0.3f Loss: %0.5f' % (counter / 1 if dataset_len is None else counter / dataset_len, np.mean(np.array(loss_average))), end='\r')
+                print('Epoch Completed: %0.3f Generator Loss: %0.5f Discriminator Loss: %0.5f' % (counter / 1 if dataset_len is None else counter / dataset_len, np.array(generator_loss).mean(), np.array(discriminator_loss).mean()), end='\r')
               except StopIteration:
                   break
 
             dataset_len = counter
 
-            training_loss.append(np.mean(np.array(loss_average)))
-            print('\nTime for epoch {} is {} sec; Training loss : {} Counter : {}'.format(epoch + 1, time.time()-start_time, training_loss[-1], counter))
+            print('\nTime for epoch {} is {} sec; Generator Training loss : {}; Discriminator Training loss : {}; Counter : {}'.format(epoch + 1, time.time()-start_time, np.array(generator_loss).mean(), np.array(discriminator_loss).mean(), counter))
             print("\n\n\nPress Control C to stop training")
 
             if epoch % epoch_save_checkpoint == 0:

@@ -101,7 +101,7 @@ def generator_loss_function(fake_output):
     # generator wants discriminator to think generated images are real
     return cross_entropy(tf.ones_like(fake_output), fake_output)
 
-generator_optimizer = tf.keras.optimizers.Adam(5e-5)
+generator_optimizer = tf.keras.optimizers.Adam(1e-4)
 discriminator_optimizer = tf.keras.optimizers.Adam(1e-4)
 
 @tf.function

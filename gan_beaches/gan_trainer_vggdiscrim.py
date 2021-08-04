@@ -2,7 +2,6 @@ import tensorflow as tf
 import cv2
 import numpy as np
 import time
-import time
 import constants
 
 # Configuring gpus for memory growth
@@ -59,23 +58,12 @@ def generator(noise_shape, output_shape):
     return generator
 
 def discriminator(input_shape, output_size):
-    inputs = tf.keras.layers.Input(shape = input_shape)
-    x = tf.keras.layers.Conv2D(32, kernel_size=5, strides=(2, 2), padding='same')(inputs)
-    x = tf.keras.layers.BatchNormalization()(x)
-    x = tf.keras.layers.LeakyReLU()(x)
-    x = tf.keras.layers.Dropout(0.3)(x)
-
-    x = tf.keras.layers.Conv2D(64, kernel_size=5, padding='same')(inputs)
-    x = tf.keras.layers.BatchNormalization()(x)
-    x = tf.keras.layers.LeakyReLU()(x)
-    x = tf.keras.layers.Dropout(0.3)(x)
-
-
-    x = tf.keras.layers.Flatten()(x)
-    outputs = tf.keras.layers.Dense(output_size)(x)
-
-    discriminator = tf.keras.models.Model(inputs, outputs)
-
+    VGG_16_MODEL = tf.keras.applications.VGG16(input_shape = input_shape, include_top=False, weights='imagenet')
+    discriminator = tf.keras.Sequential([
+        VGG_16_MODEL,
+        tf.keras.layers.GlobalAveragePooling2D(),
+        tf.keras.layers.Dense(output_size, activation='tanh')
+    ])
     return discriminator
 
 
@@ -91,7 +79,6 @@ print("Created Model")
 
 cross_entropy = tf.keras.losses.BinaryCrossentropy(from_logits=True)
 
-
 def discriminator_loss_function(real_output, fake_output):
     real_loss = cross_entropy(tf.ones_like(real_output), real_output)
     fake_loss = cross_entropy(tf.zeros_like(fake_output), fake_output)
@@ -101,7 +88,7 @@ def generator_loss_function(fake_output):
     # generator wants discriminator to think generated images are real
     return cross_entropy(tf.ones_like(fake_output), fake_output)
 
-generator_optimizer = tf.keras.optimizers.Adam(1e-4)
+generator_optimizer = tf.keras.optimizers.Adam(1e-3)
 discriminator_optimizer = tf.keras.optimizers.Adam(1e-4)
 
 @tf.function
@@ -167,6 +154,6 @@ def train(epochs=10, epoch_save_checkpoint=10):
 
 epoch_save_checkpoint = 10 # save model every 10 epochs
 print("\n\n\n\n Starting Training ... \n\n\n")
-train(epochs=50, epoch_save_checkpoint=epoch_save_checkpoint)
+train(epochs=101, epoch_save_checkpoint=epoch_save_checkpoint)
 
 

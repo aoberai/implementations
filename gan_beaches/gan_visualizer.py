@@ -1,12 +1,11 @@
 
 import tensorflow as tf
-from tensorflow import keras
-from tensorflow.keras import Model, Input, Sequential, layers
 import cv2
 import numpy as np
 import constants
 
 
+generator = tf.keras.models.load_model("best_generator1.h5", compile=False)
 generator = tf.keras.models.load_model("best_generator2.h5", compile=False)
 
 noise_dim = 100
@@ -15,7 +14,7 @@ counter = 0
 while True:
     noise = np.expand_dims(tf.random.normal([noise_dim]).numpy(), 0)
 
-    generated_image = generator.predict(noise)
+    generated_image = generator.predict(noise)[0,:,:,:] * 255
 
     # print(generated_image)
 
@@ -23,7 +22,10 @@ while True:
     # print(np.shape(generated_image))
     # exit(0)
 
-    cv2.imshow("Original Image", cv2.resize(generated_image[0,:,:,:], (constants.image_shape[0]*2, constants.image_shape[1]*2)))
+    # generated_image = cv2.resize(generated_image, (constants.image_shape[0]*2, constants.image_shape[1]*2)) * 255
+
+
+    cv2.imshow("Original Image", generated_image)
     cv2.waitKey(1)
 
     if counter != 0:

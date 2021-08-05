@@ -109,7 +109,7 @@ def train(dataset, epochs=10):
               counter+=1
               print('Epoch Completed: {0:3f}'.format(counter / dataset.__len__().numpy()), end='\r')
 
-            validation_loss.append((x_test - decoder_model.predict(encoder_model.predict(x_test))**2).mean())
+            validation_loss.append(np.square(x_test - decoder_model.predict(encoder_model.predict(x_test))).mean())
             training_loss.append(np.mean(np.array(loss_average)))
             print('\nTime for epoch {} is {} sec; Training loss : {} Validation Loss: {} Counter : {}'.format(epoch + 1, time.time()-start_time, training_loss[-1], validation_loss[-1], counter))
             print("\n\n\nPress Control C to stop training")

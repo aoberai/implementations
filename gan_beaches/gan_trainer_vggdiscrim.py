@@ -4,6 +4,8 @@ import numpy as np
 import time
 import constants
 
+debug = True
+
 # Configuring gpus for memory growth
 gpus = tf.config.list_physical_devices('GPU')
 if gpus:
@@ -64,6 +66,7 @@ def discriminator(input_shape, output_size):
         tf.keras.layers.GlobalAveragePooling2D(),
         tf.keras.layers.Dense(output_size, activation='tanh')
     ])
+    print(discriminator.summary())
     return discriminator
 
 
@@ -88,8 +91,8 @@ def generator_loss_function(fake_output):
     # generator wants discriminator to think generated images are real
     return cross_entropy(tf.ones_like(fake_output), fake_output)
 
-generator_optimizer = tf.keras.optimizers.Adam(1e-3)
-discriminator_optimizer = tf.keras.optimizers.Adam(1e-4)
+generator_optimizer = tf.keras.optimizers.Adam(lr=2e-4, beta_1=0.5)
+discriminator_optimizer = tf.keras.optimizers.Adam(lr=1e-3, beta_1=0.5)
 
 @tf.function
 def train_step(images):
@@ -115,6 +118,7 @@ def train_step(images):
 
 def train(epochs=10, epoch_save_checkpoint=10):
     try:
+        example_noise = tf.random.normal([noise_dim]).numpy()
         dataset_len = None
         for epoch in range(epochs):
             generator_loss = []
@@ -129,7 +133,15 @@ def train(epochs=10, epoch_save_checkpoint=10):
                 generator_loss.append(loss[0])
                 discriminator_loss.append(loss[1])
                 counter+=1
-                print('Epoch Completed: %0.3f Generator Loss: %0.5f Discriminator Loss: %0.5f' % (counter / 1 if dataset_len is None else counter / dataset_len, np.array(generator_loss).mean(), np.array(discriminator_loss).mean()), end='\r')
+                print('Epoch Completed: %0.3f Generator Loss: %f Discriminator Loss: %f' % (counter / 1 if dataset_len is None else counter / dataset_len, np.array(generator_loss).mean(), np.array(discriminator_loss).mean()), end='\r')
+                if debug and counter % 20 == 0: # displays every 5 train steps
+                    example_image = generator_model.predict(np.expand_dims(example_noise, 0))[0]
+                    # print(example_image)
+                    # print(np.shape(example_image))
+                    # assert example_image is not None
+                    example_image = cv2.resize(example_image, (360*2, 240*2), interpolation = cv2.INTER_AREA)
+                    cv2.imshow("Example", example_image)
+                    cv2.waitKey(1)
               except StopIteration:
                   break
 
@@ -154,6 +166,7 @@ def train(epochs=10, epoch_save_checkpoint=10):
 
 epoch_save_checkpoint = 10 # save model every 10 epochs
 print("\n\n\n\n Starting Training ... \n\n\n")
+
 train(epochs=101, epoch_save_checkpoint=epoch_save_checkpoint)
 
 

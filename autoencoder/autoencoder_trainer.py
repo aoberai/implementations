@@ -31,7 +31,7 @@ print("\n\n\n\nStarting Training Process\n\n\n")
 # Batch and shuffle the data
 train_dataset = tf.data.Dataset.from_tensor_slices(x_train).shuffle(60000).batch(128)
 
-latent_space_dims = 40
+latent_space_dims = 5
 
 print(np.shape(x_train))
 
@@ -82,13 +82,13 @@ def train_step(images):
       latent = encoder_model(images, training=True)
       generated_images = decoder_model(latent, training=True)
       loss = autoencoder_loss(images, generated_images) # calculates MSE difference between original image and generated image
-        
+
     # Computes gradient through backpropping through operations specified in gradient tape section
     encoder_gradients = encoder.gradient(loss, encoder_model.trainable_variables)
     # print(encoder_model.trainable_variables)
     decoder_gradients = decoder.gradient(loss, decoder_model.trainable_variables)
     # print(decoder_model.trainable_variables)
-        
+
     # Applies negative of derivative of cost function with respect to weights for both encoder and decoder
     optimizer.apply_gradients(zip(encoder_gradients, encoder_model.trainable_variables))
     optimizer.apply_gradients(zip(decoder_gradients, decoder_model.trainable_variables))
@@ -128,8 +128,6 @@ def train(dataset, epochs=10):
 
             encoder_model.save("encoder.h5")
             decoder_model.save("decoder.h5")
-
-
 
 train(train_dataset, epochs=50)
 

@@ -134,12 +134,12 @@ def train(epochs=10, epoch_save_checkpoint=10):
                 discriminator_loss.append(loss[1])
                 counter+=1
                 print('Epoch Completed: %0.3f Generator Loss: %f Discriminator Loss: %f' % (counter / 1 if dataset_len is None else counter / dataset_len, np.array(generator_loss).mean(), np.array(discriminator_loss).mean()), end='\r')
-                if debug and counter % 20 == 0: # displays every 5 train steps
+                if debug and counter % 20 == 0 and epoch >= 5: # displays every 5 train steps
                     example_image = generator_model.predict(np.expand_dims(example_noise, 0))[0]
                     # print(example_image)
                     # print(np.shape(example_image))
                     # assert example_image is not None
-                    example_image = cv2.resize(example_image, (360*2, 240*2), interpolation = cv2.INTER_AREA)
+                    # example_image = cv2.resize(example_image, (360*2, 240*2), interpolation = cv2.INTER_AREA)
                     cv2.imshow("Example", example_image)
                     cv2.waitKey(1)
               except StopIteration:

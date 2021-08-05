@@ -2,6 +2,9 @@ import tensorflow as tf
 import numpy as np
 import time
 import constants
+import cv2
+
+debug = True
 
 # Configuring gpus for memory growth
 gpus = tf.config.list_physical_devices('GPU')
@@ -82,9 +85,8 @@ noise_dim = 100
 
 # print("\n\n\n\nSize of dataset", len(dataset_images))
 
-generator_model = generator((noise_dim,), (constants.image_shape[1], constants.image_shape[0], 3,))
+generator_model = generator((noise_dim,), (constants.image_shape[1], constants.image_shape[0], 3,)) 
 discriminator_model = discriminator((constants.image_shape[1], constants.image_shape[0], 3,), 1)
-
 print("Created Model")
 
 cross_entropy = tf.keras.losses.BinaryCrossentropy(from_logits=True)
@@ -126,6 +128,7 @@ def train_step(images):
 
 def train(epochs=10, epoch_save_checkpoint=10):
     try:
+        example_noise = tf.random.normal([noise_dim]).numpy()
         dataset_len = None
         for epoch in range(epochs):
             generator_loss = []
@@ -141,6 +144,12 @@ def train(epochs=10, epoch_save_checkpoint=10):
                 discriminator_loss.append(loss[1])
                 counter+=1
                 print('Epoch Completed: %0.3f Generator Loss: %0.5f Discriminator Loss: %0.5f' % (counter / 1 if dataset_len is None else counter / dataset_len, np.array(generator_loss).mean(), np.array(discriminator_loss).mean()), end='\r')
+                if debug and counter % 20 == 0: # displays every 5 train steps
+                    example_image = generator_model.predict(np.expand_dims(example_noise, 0))[0]
+                    # example_image = cv2.resize(example_image, (360*2, 240*2), interpolation = cv2.INTER_AREA)
+                    cv2.imshow("Example", example_image)
+                    cv2.waitKey(1)
+
               except StopIteration:
                   break
 

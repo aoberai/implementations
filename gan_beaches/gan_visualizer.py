@@ -7,7 +7,7 @@ import numpy as np
 import constants
 
 
-generator = tf.keras.models.load_model("generator_epoch30.h5", compile=False)
+generator = tf.keras.models.load_model("best_generator2.h5", compile=False)
 
 noise_dim = 100
 

@@ -10,8 +10,14 @@ import time
 x_test = x_test.reshape(x_test.shape[0], 28, 28, 1).astype('float32')
 x_test = x_test / 255.
 
-encoder = tf.keras.models.load_model("encoder.h5")
-decoder = tf.keras.models.load_model("decoder.h5")
+encoder = tf.keras.models.load_model("encoder_bottleneck5.h5")
+decoder = tf.keras.models.load_model("decoder_bottleneck5.h5")
+
+# encoder = tf.keras.models.load_model("encoder.h5")
+# decoder = tf.keras.models.load_model("decoder.h5")
+
+# encoder = tf.keras.models.load_model("encoder1epoch.h5")
+# decoder = tf.keras.models.load_model("decoder1epoch.h5")
 
 for i in range(0, len(x_test)):
     image = x_test[i]

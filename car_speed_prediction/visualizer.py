@@ -3,14 +3,15 @@ import tensorflow as tf
 import constants
 import cv2
 
-test_vid = cv2.VideoCapture("./data/test.mp4")
+# vid = cv2.VideoCapture("./data/test.mp4")
+vid = cv2.VideoCapture("./data/train.mp4")
 
 speed_predictor = tf.keras.models.load_model(constants.model_path)
 
 model_frames = []
 
 while True:
-    ret, frame = test_vid.read()
+    ret, frame = vid.read()
     if not ret:
         break
     model_frame = cv2.resize(frame, (constants.image_size[0], constants.image_size[1],))
@@ -21,4 +22,4 @@ while True:
         predicted_speed = speed_predictor.predict(frames_np)
         cv2.imshow("Speed Predictor", cv2.resize(frame, (constants.image_size[0]*3, constants.image_size[1]*3)))
         cv2.waitKey(1)
-        print("Speed:", predicted_speed[0])
+        print("Speed:", predicted_speed[0][0])

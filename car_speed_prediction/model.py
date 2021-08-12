@@ -2,29 +2,23 @@ import tensorflow as tf
 from tensorflow.keras.layers import *
 import constants
 import numpy as np
-import random
-
 
 frames = np.load("frames.npy")
 speeds = np.load("speeds.npy")
 
-# frames_test = np.load("frames_test.npy")
-
-train_ds = tf.keras.preprocessing.timeseries_dataset_from_array(
+ds = tf.keras.preprocessing.timeseries_dataset_from_array(
         data=frames,
         targets=speeds,
         sequence_length=constants.frame_window_size,
         sampling_rate=2,
-        sequence_stride=3,
+        sequence_stride=2,
         shuffle=True,
         batch_size=32
 )
 
-# test_ds = tf.keras.preprocessing.timeseries_dataset_from_array(
-#         data=frames_test,
-#         targets=None,
-#         sequence_length=frame_window_size
-# )
+validation_set_size = round(ds.__len__().numpy() * 0.1)
+validation_ds = ds.take(validation_set_size)
+train_ds = ds.skip(validation_set_size)
 
 # simple cnn lstm architecture
 
@@ -58,7 +52,9 @@ tf.keras.utils.plot_model(
     to_file="architecture_model.png",
     show_shapes=True)
 
-lrcn_model.fit(x=train_ds)
+earlystopping_callback = tf.keras.callbacks.EarlyStopping(monitor='val_loss', patience=2, restore_best_weights=True)
+
+lrcn_model.fit(x=train_ds, epochs=30, validation_data=validation_ds, callbacks=[earlystopping_callback])
 
 lrcn_model.save(constants.model_path)
 

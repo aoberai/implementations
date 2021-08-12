@@ -100,7 +100,7 @@ def autoencoder_loss(y_true, y_pred):
     loss = K.mean(K.square(y_true - y_pred), axis = [1,2,3])
     temp_loss = K.mean(K.square(y_true - y_pred))
     assert loss == temp_loss # TODO: delete delete
-
+    exit(0)
     return loss
 
 # This annotation causes the function to be "compiled".

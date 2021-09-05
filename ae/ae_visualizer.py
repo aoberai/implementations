@@ -21,10 +21,10 @@ decoder = tf.keras.models.load_model("decoder_bottleneck5.h5")
 
 for i in range(0, len(x_test)):
     image = x_test[i]
-    print("Original Image Shape", np.shape(image))
+    # print("Original Image Shape", np.shape(image))
     cv2.imshow("Original Image", cv2.resize(image, (360, 360)))
     encoded_image = encoder.predict(np.expand_dims(image, 0))
-    print("Image squeezed to encoded shape: ", np.shape(encoded_image))
+    # print("Image squeezed to encoded shape: ", np.shape(encoded_image))
     # print(encoded_image)
     generated_image = cv2.resize(decoder.predict(encoded_image)[0,:,:,:], (360, 360))
     # print(np.shape(generated_image))

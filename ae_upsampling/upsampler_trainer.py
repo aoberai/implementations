@@ -16,7 +16,7 @@ raw_images_test = raw_images_test.reshape(raw_images_test.shape[0], image_size[0
 raw_images = raw_images / 255.
 raw_images_test = raw_images_test / 255
 
-crunch_size = (10, 10)
+crunch_size = (20, 20)
 upscale_size = (360, 240)
 
 low_res_images = [cv2.resize(cv2.resize(image, crunch_size), image_size) for image in raw_images]
@@ -98,9 +98,6 @@ optimizer = tf.keras.optimizers.Adam(learning_rate = 10e-3)
 
 def autoencoder_loss(y_true, y_pred):
     loss = K.mean(K.square(y_true - y_pred), axis = [1,2,3])
-    temp_loss = K.mean(K.square(y_true - y_pred))
-    assert loss == temp_loss # TODO: delete delete
-    exit(0)
     return loss
 
 # This annotation causes the function to be "compiled".

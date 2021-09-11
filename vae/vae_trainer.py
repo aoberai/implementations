@@ -1,5 +1,5 @@
 
-# An implementation of an autoencoder in Tensorflow
+# An implementation of a variational autoencoder in Tensorflow
 
 import tensorflow as tf
 from tensorflow import keras
@@ -83,7 +83,7 @@ def reconstruction_loss(y_true, y_pred):
 # TODO: Read this: https://stats.stackexchange.com/questions/486203/why-we-learn-log-sigma2-in-vae-reparameterization-trick-instead-of-standar
 def kl_divergence_loss(mean_vector, log_var_vector):
     # Calculates divergence to N(mu = 0, sigma**2 = 1)
-    loss = -0.5 * K.sum(1 + log_var_vector - K.square(mean_vector) - K.exp(log_var_vector), axis=1)
+    loss = +0.5 * K.sum(K.exp(0.5 * log_var_vector) + K.square(mean_vector) - 1 - 0.5 * log_var_vector, axis=1)
     return loss
     # return -0.5 * K.sum(K.square(std_vector) + K.square(mean_vector) - 1 - K.log(1e-8 + K.square(std_vector)), axis=1)
 
@@ -93,14 +93,12 @@ def train_step(images):
     with tf.GradientTape() as encoder, tf.GradientTape() as decoder:
       mean_vector, log_var_vector = encoder_model(images, training=True)
 
+      # Test that regularization not resulting in exploding gradient
       if math.isnan(np.mean(mean_vector.numpy())):
           print("\n\n\n\n")
           print(mean_vector.numpy())
           print(log_var_vector.numpy())
           exit(0)
-      else:
-          print("Works")
-
 
       # Sampling from gaussian latent space
       z_vector = mean_vector + tf.multiply(tf.exp(0.5 * log_var_vector), tf.random.normal(tf.shape(mean_vector), 0, 1, tf.float32))

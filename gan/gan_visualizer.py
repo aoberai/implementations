@@ -16,14 +16,7 @@ while True:
     noise = np.expand_dims(tf.random.normal([noise_dim]).numpy(), 0)
 
     generated_image = generator.predict(noise)
-
-    # print(generated_image)
-
-    # print(type(generated_image))
-    # print(np.shape(generated_image))
-    # exit(0)
-
-    cv2.imshow("Original Image", generated_image[0,:,:,:])
+    cv2.imshow("Generated Image", generated_image[0,:,:,:])
     cv2.waitKey(1)
 
     if counter != 0:

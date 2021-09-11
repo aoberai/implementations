@@ -9,3 +9,4 @@ __pycache__
 *.npz
 logs/
 *.mp4
+README.md

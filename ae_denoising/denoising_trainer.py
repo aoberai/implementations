@@ -39,7 +39,7 @@ test_dataset_y = np.load("dataset/mnist_test.npy")
 
 print(np.shape(mnist_noise_train), np.shape(mnist_train), np.shape(test_dataset_x), np.shape(test_dataset_y))
 
-bottleneck_depth = 32
+bottleneck_depth = 10
 
 image_dims = (28, 28, 1)
 

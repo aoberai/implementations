@@ -3,7 +3,6 @@ from tensorflow import keras
 import numpy as np
 import random
 
-
 image_size = (28, 28)
 (raw_images, _), (raw_images_test, _) = keras.datasets.mnist.load_data()
 raw_images = raw_images.reshape(raw_images.shape[0], image_size[0], image_size[1], 1).astype('float32')
@@ -19,12 +18,15 @@ noisy_images_test = np.zeros(np.shape(raw_images_test))
 
 random_seed=random.randint(0, 100)
 
+noise_frequency = 0.2
+
 # Adds some noise to the data
 for image in range(len(raw_images)):
     print("Finished : ", int(image * 100 /np.shape(noisy_images)[0]), "%", end='\r')
     for row_pixel in range(len(raw_images[image])):
         for column_pixel in range(len(raw_images[image][row_pixel])):
-            noisy_images[image][row_pixel][column_pixel] = raw_images[image][row_pixel][column_pixel] if random.randint(0, 10) != 5 else max(raw_images[image][row_pixel][column_pixel] + random.randint(1, 10) / 10, 1)
+            add_noise = (random.randint(1, 10) > 10*(1 - noise_frequency))
+            noisy_images[image][row_pixel][column_pixel] = raw_images[image][row_pixel][column_pixel] if not add_noise else max(raw_images[image][row_pixel][column_pixel] + random.randint(1, 10) / 10, 1)
 
 np.random.seed(random_seed)
 np.random.shuffle(noisy_images)
@@ -41,7 +43,8 @@ for image in range(len(raw_images_test)):
     print("Finished : ", int(image * 100 /np.shape(noisy_images_test)[0]), "%", end='\r')
     for row_pixel in range(len(raw_images_test[image])):
         for column_pixel in range(len(raw_images_test[image][row_pixel])):
-            noisy_images_test[image][row_pixel][column_pixel] = raw_images_test[image][row_pixel][column_pixel] if random.randint(0, 10) != 5 else max(raw_images_test[image][row_pixel][column_pixel] + random.randint(1, 10) / 10, 1)
+            add_noise = (random.randint(1, 10) > 10*(1 - noise_frequency))
+            noisy_images_test[image][row_pixel][column_pixel] = raw_images_test[image][row_pixel][column_pixel] if not add_noise else max(raw_images_test[image][row_pixel][column_pixel] + random.randint(1, 10) / 10, 1)
 
 
 np.random.seed(random_seed)

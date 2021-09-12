@@ -46,20 +46,19 @@ for image_name in dataset_images_path:
         image = cv2.imread(image_path)
         image = preprocessing(image)
         dataset_images.append(image)
+        # displays images 
+        # '''
+        cv2.imshow("Beach", image)
+        cv2.waitKey(1)
+        time.sleep(2)
+        print(image_path)
+        # '''
     except Exception as e:
         print(image_path, "broken")
         print(e)
 
 
-    # displays images 
-    '''
-    cv2.imshow("Beach", image)
-    cv2.waitKey(1)
-    time.sleep(2)
-    print(image_path)
-    '''
-
-np.random.shuffle(dataset_images)
+    np.random.shuffle(dataset_images)
 
 np.save("beaches.npy", dataset_images)
 

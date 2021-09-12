@@ -6,10 +6,10 @@ model = tf.keras.models.load_model('trading_model.h5')
 
 
 print(np.shape(TrainingInput(False, 0, 0, [0.01 * i for i in range(30)], 0, 0, [0]*30).get_serialized_input()))
+
 # Test Case 1: Going Linearly Up
 
 print("Going linearly up: ", TrainingInput.map(model.predict(TrainingInput(False, 0, 0, [0.01 * i for i in range(30)], 0, 0, [0]*30).get_serialized_input()), False))
-
 
 
 # Test Case 2: Going Linearly Down 

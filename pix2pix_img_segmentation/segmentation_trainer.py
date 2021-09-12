@@ -4,6 +4,13 @@ import time
 import constants
 import cv2
 
+
+'''
+Based off of this paper: https://arxiv.org/abs/1611.07004v3
+Uses GAN model to do image segmentation of car driving data
+'''
+
+
 debug = True
 
 # Configuring gpus for memory growth
@@ -76,9 +83,7 @@ def discriminator(input_shape, output_size):
     outputs = tf.keras.layers.Dense(output_size)(x)
 
     discriminator = tf.keras.models.Model(inputs, outputs)
-
     return discriminator
-
 
 
 noise_dim = 100

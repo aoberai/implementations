@@ -19,7 +19,7 @@ if gpus:
         # Memory growth must be set before GPUs have been initialized
         print(e)
 
-dataset_images_mmap = np.load('beaches.npy', mmap_mode = 'r')
+dataset_images_mmap = np.load('dataset/beaches.npy', mmap_mode = 'r')
 
 BATCH_SIZE = 8
 

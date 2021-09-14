@@ -8,8 +8,55 @@ import cv2
 '''
 Based off of this paper: https://arxiv.org/abs/1611.07004v3
 Uses GAN model to do image segmentation of car driving data
-'''
 
+Summary of Paper:
+Image to Image Translation : [Image of scene -> Segmentation mask]
+
+Using Gan Approach ->
+	- learns loss function to train mapping so no need to specify as with basic ConvNet
+	- better than MSE loss which causes blurring due to "averaging all plausible outputs"
+        - Setting high level goal of making indistinguishable from reality can make easier and better loss function; "can, in theory, penalize any possible structure that differs between output and target"
+	- Reduces blurry images which are common with generative VAE's since discriminator learns that blurry images are obv fake
+
+
+Existing Solutions
+
+
+"Image to image translation problems are often formulated as per-pixel classification or regression." These individually take the loss for each pixel independently, considering the output space to be "unstructured" whereas something like a GAN calculates loss based on the "joint configuration of the output" i.e. the whole image produced.
+
+How this solution works:
+
+"Discriminator learns to classify betweeen fake (synthesized by generator) and real {input image, output image} tuples
+
+Difference between normal gan architecture is that in a pix2pix GAN, both the generator and discriminator see the input image; the generator, instead of taking in only random noise(which is optional), takes in the input image which is to be translated to a different format.
+
+We can mix discriminator loss with simple traditiona L1 or L2 loss (L1 encourages less blurring and prevents mode collapse (where generated samples are very similar)) -> groundtruths result for early iterations when discriminator not working well
+
+For a lil bit of variation, you can apply dropout on the generator at both training and inference time instead of gaussian noise z (latent vector) which is often times just ignored by network.
+
+Recommended modules are in the form of convolution -> batchnorm -> relu
+
+Generator:
+    U net is basically encoder decoder setup with "skip connections"
+        Skip connections allow low level information to be shuttled without passing through bottleneck.
+            U net adds connections between each layer i and layer n - i
+
+Discriminator:
+    Merging loss with L1 "motivates restricting ... to only model high-frequency structure, relying on a L1 term to force low-frequency correctness"
+    Since only looking at high-freq struc, then discriminator only penalizes at the scale of patches. Classifies if NxN patch is real or fake. Runs this convolution filter across the whole image, averaging all responses for final discriminator loss - side benefit of this is that patchgan "can be applied to arbitrarily large images."
+    Markovian in nature since patchgan assumes "independence between pixels separated by more than a patch diameter"
+
+Optimization of network:
+
+Alternate between one gradient descent step on D, then on G
+Train G with loss func of log(D(x, G(x, z))) instead of log(1-D(x, G(x,z))), divide this by 2 while optimizing D, "slowing down the rate at which D learns relative to G"
+
+Recs: lr: 2e-4; momentum=0.5
+batch_size between 1 to 10
+70x70 patchgans
+
+
+'''
 
 debug = True
 
@@ -43,45 +90,10 @@ train_dataset = total_dataset.skip(validation_set_size).batch(BATCH_SIZE).prefet
 
 
 def generator(noise_shape, output_shape):
-    inputs = tf.keras.layers.Input(shape = noise_shape)
-    x = tf.keras.layers.Dense(output_shape[0] * output_shape[1] * 4)(inputs)
-    x = tf.keras.layers.BatchNormalization()(x)
-    x = tf.keras.layers.LeakyReLU()(x)
-
-    x = tf.keras.layers.Reshape((output_shape[0]//4, output_shape[1]//4, 64,))(x)
-
-    x = tf.keras.layers.Conv2DTranspose(32, kernel_size=5, strides=(2, 2), padding='same')(x)
-    x = tf.keras.layers.BatchNormalization()(x)
-    x = tf.keras.layers.LeakyReLU()(x)
-
-    x = tf.keras.layers.Conv2DTranspose(16, kernel_size=5, strides=(2, 2), padding='same')(x)
-    x = tf.keras.layers.BatchNormalization()(x)
-    x = tf.keras.layers.LeakyReLU()(x)
-
-    outputs = tf.keras.layers.Conv2DTranspose(output_shape[2], kernel_size=5, padding='same', activation='tanh')(x)
-
     generator = tf.keras.models.Model(inputs, outputs)
-
-    assert generator.output_shape == (None,) + output_shape
-
     return generator
 
 def discriminator(input_shape, output_size):
-    inputs = tf.keras.layers.Input(shape = input_shape)
-    x = tf.keras.layers.Conv2D(32, kernel_size=5, strides=(2, 2), padding='same')(inputs)
-    x = tf.keras.layers.BatchNormalization()(x)
-    x = tf.keras.layers.LeakyReLU()(x)
-    x = tf.keras.layers.Dropout(0.3)(x)
-
-    x = tf.keras.layers.Conv2D(64, kernel_size=5, padding='same')(inputs)
-    x = tf.keras.layers.BatchNormalization()(x)
-    x = tf.keras.layers.LeakyReLU()(x)
-    x = tf.keras.layers.Dropout(0.3)(x)
-
-
-    x = tf.keras.layers.Flatten()(x)
-    outputs = tf.keras.layers.Dense(output_size)(x)
-
     discriminator = tf.keras.models.Model(inputs, outputs)
     return discriminator
 
@@ -90,8 +102,8 @@ noise_dim = 100
 
 # print("\n\n\n\nSize of dataset", len(dataset_images))
 
-generator_model = generator((noise_dim,), (constants.image_shape[1], constants.image_shape[0], 3,)) 
-discriminator_model = discriminator((constants.image_shape[1], constants.image_shape[0], 3,), 1)
+generator_model = generator()
+discriminator_model = discriminator()
 print("Created Model")
 
 cross_entropy = tf.keras.losses.BinaryCrossentropy(from_logits=True)

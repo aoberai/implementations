@@ -1,9 +1,3 @@
-import tensorflow as tf
-import numpy as np
-import time
-import constants
-import cv2
-
 
 '''
 Based off of this paper: https://arxiv.org/abs/1611.07004v3
@@ -55,142 +49,81 @@ Recs: lr: 2e-4; momentum=0.5
 batch_size between 1 to 10
 70x70 patchgans
 
-
+Trained on comma10k dataset
 '''
 
-debug = True
 
-# Configuring gpus for memory growth
-gpus = tf.config.list_physical_devices('GPU')
-if gpus:
-    try:
-        # Currently, memory growth needs to be the same across GPUs
-        for gpu in gpus:
-            tf.config.experimental.set_memory_growth(gpu, True)
-            logical_gpus = tf.config.list_logical_devices('GPU')
-            print(len(gpus), "Physical GPUs,", len(logical_gpus), "Logical GPUs")
-    except RuntimeError as e:
-        # Memory growth must be set before GPUs have been initialized
-        print(e)
+import tensorflow as tf
+from tensorflow.keras import Input, Model, layers
+import numpy as np
+import visualkeras
+from PIL import ImageFont
 
-dataset_images_mmap = np.load('beaches.npy', mmap_mode = 'r')
+image_shape = (256, 256, 3)
 
-BATCH_SIZE = 8
+# Generator
+# TODO: fix the weird thing with conv2d not showing up with consecutive same filter size
+def generator(image_shape):
 
-def data_generator():
-    for i in range(0, len(dataset_images_mmap)):
-        yield dataset_images_mmap[i]
+    inputs = Input(image_shape)
+    stacks_conv_filter = [64, 64, 128, 128, 256, 256, 512, 512, 256, 256, 128, 128, 64, 64, 3]
+    stacks_scale = [None, "MaxPool", None, "MaxPool", None, "MaxPool", None, None, "UpSample", "UpSample", "UpSample", "UpSample", "UpSample", None, None]
+    stacks_dropout_rate = [0, 0, 0, 0, 0, 0, 0, 0, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0]
 
-total_dataset = tf.data.Dataset.from_generator(generator=data_generator, output_signature=(tf.TensorSpec(shape=(constants.image_shape[1], constants.image_shape[0], 3,), dtype=np.float32)))
+    print(len(stacks_conv_filter), len(stacks_scale), len(stacks_dropout_rate))
+    assert len(stacks_conv_filter) == len(stacks_dropout_rate) == len(stacks_scale)
 
-validation_set_size = int(len(dataset_images_mmap) * 0.2)
+    def downsample(inputs, filter_count, conv_kernel_size=(3,3,), dropout_rate=0, maxpool=False):
+        x = layers.Conv2D(filter_count, conv_kernel_size, padding='same')(inputs)
+        if maxpool:
+            x = layers.MaxPool2D(pool_size=(2, 2))(x)
+        x = layers.BatchNormalization()(x)
+        if dropout_rate != 0:
+            x = layers.Dropout(dropout_rate)(x)
+        outputs = layers.LeakyReLU()(x)
+        return outputs
 
-val_dataset = total_dataset.take(validation_set_size).prefetch(buffer_size=tf.data.experimental.AUTOTUNE)
-train_dataset = total_dataset.skip(validation_set_size).batch(BATCH_SIZE).prefetch(buffer_size=tf.data.experimental.AUTOTUNE)
+    def upsample(inputs, filter_count, conv_kernel_size=(3, 3,), dropout_rate=0, upsample=False):
+        print(2 if upsample else 1)
+        x = layers.Conv2DTranspose(filter_count, conv_kernel_size, strides=2 if upsample else 1, padding='same')(inputs)
+        # x = layers.Conv2DTranspose(filter_count, conv_kernel_size, strides=2, padding='same')(inputs)
+        x = layers.BatchNormalization()(x)
+        if dropout_rate != 0:
+            x = layers.Dropout(dropout_rate)(x)
+        outputs = layers.ReLU()(x)
+        return outputs
 
-
-def generator(noise_shape, output_shape):
-    generator = tf.keras.models.Model(inputs, outputs)
-    return generator
-
-def discriminator(input_shape, output_size):
-    discriminator = tf.keras.models.Model(inputs, outputs)
-    return discriminator
-
-
-noise_dim = 100
-
-# print("\n\n\n\nSize of dataset", len(dataset_images))
-
-generator_model = generator()
-discriminator_model = discriminator()
-print("Created Model")
-
-cross_entropy = tf.keras.losses.BinaryCrossentropy(from_logits=True)
-
-
-def discriminator_loss_function(real_output, fake_output):
-    real_loss = cross_entropy(tf.ones_like(real_output), real_output)
-    fake_loss = cross_entropy(tf.zeros_like(fake_output), fake_output)
-    return real_loss + fake_loss
-
-def generator_loss_function(fake_output):
-    # generator wants discriminator to think generated images are real
-    return cross_entropy(tf.ones_like(fake_output), fake_output)
-
-generator_optimizer = tf.keras.optimizers.Adam(1e-4)
-discriminator_optimizer = tf.keras.optimizers.Adam(1e-4)
-
-@tf.function
-def train_step(images):
-    noise = tf.random.normal([BATCH_SIZE, noise_dim])
-
-    with tf.GradientTape() as gen_tape, tf.GradientTape() as disc_tape:
-        generated_images = generator_model(noise, training=True)
-
-        real_output = discriminator_model(images, training=True)
-        fake_output = discriminator_model(generated_images, training=True)
-
-        generator_loss = generator_loss_function(fake_output)
-        discriminator_loss = discriminator_loss_function(real_output, fake_output)
-
-    gradients_of_generator = gen_tape.gradient(generator_loss, generator_model.trainable_variables)
-    gradients_of_discriminator = disc_tape.gradient(discriminator_loss, discriminator_model.trainable_variables)
-
-    generator_optimizer.apply_gradients(zip(gradients_of_generator, generator_model.trainable_variables))
-    discriminator_optimizer.apply_gradients(zip(gradients_of_discriminator, discriminator_model.trainable_variables))
-
-    return (generator_loss, discriminator_loss)
+    s = inputs
+    for i in range(0, len(stacks_conv_filter)):
+        if stacks_conv_filter[i-1]  <= stacks_conv_filter[i]:
+            # downsample; encoder
+            s = downsample(s, stacks_conv_filter[i], (3, 3,), stacks_dropout_rate[i], True if stacks_scale[i]=="MaxPool" else False)
+            print(s)
+        else:
+            # upsample; decoder
+            s = upsample(s, stacks_conv_filter[i], (3, 3), stacks_dropout_rate[i], True if stacks_scale[i]=="UpSample" else False)
+    return Model(inputs, s)
 
 
-def train(epochs=10, epoch_save_checkpoint=10):
-    try:
-        example_noise = tf.random.normal([noise_dim]).numpy()
-        dataset_len = None
-        for epoch in range(epochs):
-            generator_loss = []
-            discriminator_loss = []
-            start_time = time.time()
-            counter = 0
-            iterator = train_dataset.as_numpy_iterator()
-            while True:
-              try:
-                image_batch = next(iterator)
-                loss = train_step(image_batch)
-                generator_loss.append(loss[0])
-                discriminator_loss.append(loss[1])
-                counter+=1
-                print('Epoch Completed: %0.3f Generator Loss: %0.5f Discriminator Loss: %0.5f' % (counter / 1 if dataset_len is None else counter / dataset_len, np.array(generator_loss).mean(), np.array(discriminator_loss).mean()), end='\r')
-                if debug and counter % 20 == 0: # displays every 5 train steps
-                    example_image = generator_model.predict(np.expand_dims(example_noise, 0))[0]
-                    # example_image = cv2.resize(example_image, (360*2, 240*2), interpolation = cv2.INTER_AREA)
-                    cv2.imshow("Example", example_image)
-                    cv2.waitKey(1)
+generator_model = generator(image_shape)
+generator_model.summary()
+# tf.keras.utils.plot_model(
+#     generator_model,
+#     to_file="model.png",
+#     show_shapes=True, expand_nested=False)
+# font=ImageFont.truetype("arial.ttf", 32)
+visualkeras.layered_view(generator_model, legend=True, to_file='model.png')
 
-              except StopIteration:
-                  break
+# Discriminator
 
-            dataset_len = counter
+# L1 Loss
 
-            print('\nTime for epoch {} is {} sec; Generator Training loss : {}; Discriminator Training loss : {}; Counter : {}'.format(epoch + 1, time.time()-start_time, np.array(generator_loss).mean(), np.array(discriminator_loss).mean(), counter))
-            print("\n\n\nPress Control C to stop training")
-
-            if epoch % epoch_save_checkpoint == 0:
-                generator_model.save("generator_epoch%d.h5" % epoch)
-
-    except KeyboardInterrupt:
-        input()
-        save_model = input("Would you like to save model?")
-
-        if save_model == 'yes':
-            print("Saving model")
-
-            generator_model.save("generator_final.h5")
-            discriminator_model.save("discriminator_final.h5")
+# Train
 
 
-epoch_save_checkpoint = 10 # save model every 10 epochs
-print("\n\n\n\n Starting Training ... \n\n\n")
-train(epochs=50, epoch_save_checkpoint=epoch_save_checkpoint)
+
+
+
+
 
 

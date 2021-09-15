@@ -56,8 +56,9 @@ Trained on comma10k dataset
 import tensorflow as tf
 from tensorflow.keras import Input, Model, layers
 import numpy as np
-import visualkeras
+import cv2
 from PIL import ImageFont
+import time
 
 image_shape = (256, 256, 3)
 
@@ -83,10 +84,10 @@ def generator(image_shape):
         outputs = layers.LeakyReLU()(x)
         return outputs
 
-    def upsample(inputs, filter_count, conv_kernel_size=(3, 3,), dropout_rate=0, upsample=False):
-        print(2 if upsample else 1)
+    def upsample(decode_inputs, skip_inputs, filter_count, conv_kernel_size=(3, 3,), dropout_rate=0, upsample=False):
+        print(decode_inputs, skip_inputs)
+        inputs = tf.keras.layers.Concatenate()([decode_inputs, skip_inputs])
         x = layers.Conv2DTranspose(filter_count, conv_kernel_size, strides=2 if upsample else 1, padding='same')(inputs)
-        # x = layers.Conv2DTranspose(filter_count, conv_kernel_size, strides=2, padding='same')(inputs)
         x = layers.BatchNormalization()(x)
         if dropout_rate != 0:
             x = layers.Dropout(dropout_rate)(x)
@@ -94,27 +95,59 @@ def generator(image_shape):
         return outputs
 
     s = inputs
+    skips = []
     for i in range(0, len(stacks_conv_filter)):
         if stacks_conv_filter[i-1]  <= stacks_conv_filter[i]:
             # downsample; encoder
             s = downsample(s, stacks_conv_filter[i], (3, 3,), stacks_dropout_rate[i], True if stacks_scale[i]=="MaxPool" else False)
-            print(s)
+            skips.append(s)
         else:
             # upsample; decoder
-            s = upsample(s, stacks_conv_filter[i], (3, 3), stacks_dropout_rate[i], True if stacks_scale[i]=="UpSample" else False)
+            s = upsample(s, skips[-1], stacks_conv_filter[i], (3, 3), stacks_dropout_rate[i], True if stacks_scale[i]=="UpSample" else False)
+            del skips[-1]
+
     return Model(inputs, s)
 
 
 generator_model = generator(image_shape)
 generator_model.summary()
-# tf.keras.utils.plot_model(
-#     generator_model,
-#     to_file="model.png",
-#     show_shapes=True, expand_nested=False)
-# font=ImageFont.truetype("arial.ttf", 32)
-visualkeras.layered_view(generator_model, legend=True, to_file='model.png')
+
+# This may be garbage
+# visualkeras.layered_view(generator_model, legend=True, to_file='model.png')
+
+tf.keras.utils.plot_model(
+    generator_model,
+    to_file="model.png",
+    show_shapes=True,
+    expand_nested=True
+)
 
 # Discriminator
+
+# from tensorflow.keras.datasets import mnist
+#
+# (x_train, y_train), (x_test, y_test) = mnist.load_data()
+#
+# print(np.shape(np.reshape(np.expand_dims(cv2.resize(np.shape(x_train[1]), (image_shape[0], image_shape[1])), 2), image_shape)))
+#
+# exit(0)
+#
+# for i in range(len(x_train)):
+#     x_train[i] = cv2.resize(x_train[i]/255.0, (image_shape[0], image_shape[1],))
+#     cv2.imshow(x_train[i])
+#     cv2.waitKey(1)
+#     time.sleep(2)
+#
+# for i in range(len(x_test)):
+#     x_test[i] = cv2.resize(x_test[i]/255.0, (image_shape[0], image_shape[1],))
+#     cv2.imshow(x_test[i])
+#     cv2.waitKey(1)
+#     time.sleep(2)
+#
+# generator_model.compile(optimizer=tf.keras.optimizers.Adam(learning_rate=2e-4), loss='mean_squared_error', metrics=['MSE'])
+#
+# generator_model.fit(x_train, x_train, batch_size=128, epochs=10, shuffle=1, validation_data=(x_test, x_test))
+#
 
 # L1 Loss
 

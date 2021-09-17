@@ -57,8 +57,6 @@ import tensorflow as tf
 from tensorflow.keras import Input, Model, layers
 import numpy as np
 import cv2
-from PIL import ImageFont
-import time
 
 image_shape = (256, 256, 3)
 
@@ -67,45 +65,55 @@ image_shape = (256, 256, 3)
 def generator(image_shape):
 
     inputs = Input(image_shape)
-    stacks_conv_filter = [64, 64, 128, 128, 256, 256, 512, 512, 256, 256, 128, 128, 64, 64, 3]
-    stacks_scale = [None, "MaxPool", None, "MaxPool", None, "MaxPool", None, None, "UpSample", "UpSample", "UpSample", "UpSample", "UpSample", None, None]
-    stacks_dropout_rate = [0, 0, 0, 0, 0, 0, 0, 0, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0]
+    up_stacks_conv = [32, 64, 128]
+    down_stacks_conv = [64, 32, 3]
+    up_stacks_scale = [("DownSample",1), ("DownSample",1), ("DownSample",2)]
+    down_stacks_scale = [("UpSample",2), ("UpSample",1), ("UpSample",1)]
+    up_stacks_dropout = [0, 0, 0]
+    down_stacks_dropout = [0.2, 0.2, 0.2]
 
-    print(len(stacks_conv_filter), len(stacks_scale), len(stacks_dropout_rate))
-    assert len(stacks_conv_filter) == len(stacks_dropout_rate) == len(stacks_scale)
+    assert len(up_stacks_conv) == len(up_stacks_dropout) == len(up_stacks_scale)
+    assert len(down_stacks_conv) == len(down_stacks_dropout) == len(down_stacks_scale)
 
-    def downsample(inputs, filter_count, conv_kernel_size=(3,3,), dropout_rate=0, maxpool=False):
-        x = layers.Conv2D(filter_count, conv_kernel_size, padding='same')(inputs)
-        if maxpool:
-            x = layers.MaxPool2D(pool_size=(2, 2))(x)
+    def downsample(inputs, filter_count, conv_kernel_size=(3,3,), dropout_rate=0, downsample_num=0):
+        x = layers.Conv2D(filter_count, conv_kernel_size, strides=2 if downsample_num > 0 else 1, padding='same')(inputs)
+        for _ in range(downsample_num - 1):
+            x = layers.MaxPooling2D((2, 2,))(x)
         x = layers.BatchNormalization()(x)
         if dropout_rate != 0:
             x = layers.Dropout(dropout_rate)(x)
         outputs = layers.LeakyReLU()(x)
+        print(outputs)
+        print("\n\n\n")
         return outputs
 
-    def upsample(decode_inputs, skip_inputs, filter_count, conv_kernel_size=(3, 3,), dropout_rate=0, upsample=False):
-        print(decode_inputs, skip_inputs)
+    def upsample(decode_inputs, skip_inputs, filter_count, conv_kernel_size=(3, 3,), dropout_rate=0, upsample_num=0):
         inputs = tf.keras.layers.Concatenate()([decode_inputs, skip_inputs])
-        x = layers.Conv2DTranspose(filter_count, conv_kernel_size, strides=2 if upsample else 1, padding='same')(inputs)
+        x = layers.Conv2DTranspose(filter_count, conv_kernel_size, strides=2 if upsample_num > 0 else 1, padding='same')(inputs)
+        for _ in range(upsample_num - 1):
+            x = layers.UpSampling2D((2, 2,))(x)
         x = layers.BatchNormalization()(x)
         if dropout_rate != 0:
             x = layers.Dropout(dropout_rate)(x)
         outputs = layers.ReLU()(x)
+        print(outputs)
+        print("\n\n\n")
         return outputs
 
+    print("\n\n\n\n")
     s = inputs
     skips = []
-    for i in range(0, len(stacks_conv_filter)):
-        if stacks_conv_filter[i-1]  <= stacks_conv_filter[i]:
-            # downsample; encoder
-            s = downsample(s, stacks_conv_filter[i], (3, 3,), stacks_dropout_rate[i], True if stacks_scale[i]=="MaxPool" else False)
-            skips.append(s)
-        else:
-            # upsample; decoder
-            s = upsample(s, skips[-1], stacks_conv_filter[i], (3, 3), stacks_dropout_rate[i], True if stacks_scale[i]=="UpSample" else False)
-            del skips[-1]
 
+    for i in range(len(up_stacks_conv)):
+        # downsample; encoder
+        s = downsample(s, up_stacks_conv[i], (3, 3,), up_stacks_dropout[i], up_stacks_scale[i][1] if up_stacks_scale[i][0]=="DownSample" else 0)
+        skips.append(s)
+    for i in range(len(down_stacks_conv)):
+        # upsample; decoder
+        s = upsample(s, skips[-1], down_stacks_conv[i], (3, 3), down_stacks_dropout[i], down_stacks_scale[i][1] if down_stacks_scale[i][0]=="UpSample" else 0)
+        del skips[-1]
+
+    print("\n\n\n\n")
     return Model(inputs, s)
 
 
@@ -122,31 +130,27 @@ tf.keras.utils.plot_model(
     expand_nested=True
 )
 
+exit(0)
+
 # Discriminator
 
-# from tensorflow.keras.datasets import mnist
-#
-# (x_train, y_train), (x_test, y_test) = mnist.load_data()
-#
-# print(np.shape(np.reshape(np.expand_dims(cv2.resize(np.shape(x_train[1]), (image_shape[0], image_shape[1])), 2), image_shape)))
-#
-# exit(0)
-#
-# for i in range(len(x_train)):
-#     x_train[i] = cv2.resize(x_train[i]/255.0, (image_shape[0], image_shape[1],))
-#     cv2.imshow(x_train[i])
-#     cv2.waitKey(1)
-#     time.sleep(2)
-#
-# for i in range(len(x_test)):
-#     x_test[i] = cv2.resize(x_test[i]/255.0, (image_shape[0], image_shape[1],))
-#     cv2.imshow(x_test[i])
-#     cv2.waitKey(1)
-#     time.sleep(2)
-#
-# generator_model.compile(optimizer=tf.keras.optimizers.Adam(learning_rate=2e-4), loss='mean_squared_error', metrics=['MSE'])
-#
-# generator_model.fit(x_train, x_train, batch_size=128, epochs=10, shuffle=1, validation_data=(x_test, x_test))
+from tensorflow.keras.datasets import mnist
+
+(mnist_train, _), (mnist_test, _) = mnist.load_data()
+mnist_train = mnist_train[:3000]
+mnist_test = mnist_test[:10]
+x_train = np.zeros((len(mnist_train),) + image_shape)
+x_test = np.zeros((len(mnist_test),) + image_shape)
+
+for i in range(len(mnist_train)):
+    x_train[i] = cv2.cvtColor(cv2.resize(mnist_train[i], (image_shape[0], image_shape[1],)), cv2.COLOR_GRAY2RGB)/255.0
+
+for i in range(len(mnist_test)):
+    x_test[i] = cv2.cvtColor(cv2.resize(mnist_test[i], (image_shape[0], image_shape[1],)), cv2.COLOR_GRAY2RGB)/255.0
+
+generator_model.compile(optimizer=tf.keras.optimizers.Adam(learning_rate=2e-4), loss='mean_squared_error', metrics=['MSE'])
+
+generator_model.fit(x_train, x_train, batch_size=128, epochs=10, shuffle=1, validation_data=(x_test, x_test))
 #
 
 # L1 Loss

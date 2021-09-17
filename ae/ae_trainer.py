@@ -37,7 +37,7 @@ print(np.shape(x_train))
 
 def encoder(input_shape, output_latent_space_dims):
   inputs = Input(shape=input_shape)
-  x = layers.Conv2D(32, 3, activation='relu', padding='same')(inputs)
+  x = layers.Conv2D(32, 3, padding='same')(inputs)
   x = layers.BatchNormalization()(x)
   x = layers.LeakyReLU()(x)
   x = layers.Flatten()(x)
@@ -57,7 +57,7 @@ def decoder(output_shape, input_latent_space_dims):
   inputs = Input(shape=input_latent_space_dims)
   x = layers.Dense(output_shape[0] * output_shape[1])(inputs)
   x = tf.keras.layers.Reshape((28, 28, 1), input_shape=(784,))(x)
-  x = layers.Conv2DTranspose(32, kernel_size=3, activation='relu', padding='same')(x)
+  x = layers.Conv2DTranspose(32, kernel_size=3, padding='same')(x)
   x = layers.BatchNormalization()(x)
   x = layers.LeakyReLU()(x)
   output = layers.Conv2DTranspose(1, kernel_size=3, activation='sigmoid', padding='same')(x)

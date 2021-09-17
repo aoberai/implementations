@@ -45,15 +45,15 @@ image_dims = (28, 28, 1)
 
 def encoder(image_shape, bottleneck):
   inputs = Input(shape=image_shape)
-  x = layers.Conv2D(64, 3, activation='relu', padding='same')(inputs)
+  x = layers.Conv2D(64, 3, padding='same')(inputs)
   x = layers.BatchNormalization()(x)
   x = layers.LeakyReLU()(x)
 
-  x = layers.Conv2D(32, 3, activation='relu', padding='same')(x)
+  x = layers.Conv2D(32, 3, padding='same')(x)
   x = layers.BatchNormalization()(x)
   x = layers.LeakyReLU()(x)
 
-  x = layers.Conv2D(8, 3, activation='relu', padding='same')(inputs)
+  x = layers.Conv2D(8, 3, padding='same')(inputs)
   x = layers.BatchNormalization()(x)
   x = layers.LeakyReLU()(x)
   x = layers.Flatten()(x)
@@ -70,15 +70,15 @@ def decoder(bottleneck, reconstructed_image_shape):
 
   x = layers.Dense(reconstructed_image_shape[0] * reconstructed_image_shape[1])(inputs)
   x = tf.keras.layers.Reshape(reconstructed_image_shape)(x)
-  x = layers.Conv2DTranspose(16, kernel_size=3, activation='relu', padding='same')(x)
+  x = layers.Conv2DTranspose(16, kernel_size=3, padding='same')(x)
   x = layers.BatchNormalization()(x)
   x = layers.LeakyReLU()(x)
 
-  x = layers.Conv2D(8, kernel_size=3, activation='relu', padding='same')(x)
+  x = layers.Conv2D(8, kernel_size=3, padding='same')(x)
   x = layers.BatchNormalization()(x)
   x = layers.LeakyReLU()(x)
 
-  outputs = layers.Conv2D(reconstructed_image_shape[2], kernel_size=3, activation='relu', padding='same')(x)
+  outputs = layers.Conv2D(reconstructed_image_shape[2], kernel_size=3, padding='same')(x)
 
   decoder = Model(inputs, outputs, name="Decoder")
   print(decoder.summary())

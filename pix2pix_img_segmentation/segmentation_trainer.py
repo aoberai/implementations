@@ -60,8 +60,32 @@ import cv2
 
 image_shape = (256, 256, 3)
 
+def downsample(inputs, filter_count, conv_kernel_size=(3,3,), dropout_rate=0, downsample_num=0):
+    x = layers.Conv2D(filter_count, conv_kernel_size, strides=2 if downsample_num > 0 else 1, padding='same')(inputs)
+    for _ in range(downsample_num - 1):
+        x = layers.MaxPooling2D((2, 2,))(x)
+    x = layers.BatchNormalization()(x)
+    if dropout_rate != 0:
+        x = layers.Dropout(dropout_rate)(x)
+    outputs = layers.LeakyReLU()(x)
+    print(outputs)
+    print("\n\n\n")
+    return outputs
+
+def upsample(decode_inputs, skip_inputs, filter_count, conv_kernel_size=(3, 3,), dropout_rate=0, upsample_num=0):
+    inputs = tf.keras.layers.Concatenate()([decode_inputs, skip_inputs])
+    x = layers.Conv2DTranspose(filter_count, conv_kernel_size, strides=2 if upsample_num > 0 else 1, padding='same')(inputs)
+    for _ in range(upsample_num - 1):
+        x = layers.UpSampling2D((2, 2,))(x)
+    x = layers.BatchNormalization()(x)
+    if dropout_rate != 0:
+        x = layers.Dropout(dropout_rate)(x)
+    outputs = layers.ReLU()(x)
+    print(outputs)
+    print("\n\n\n")
+    return outputs
+
 # Generator
-# TODO: fix the weird thing with conv2d not showing up with consecutive same filter size
 def generator(image_shape):
 
     inputs = Input(image_shape)
@@ -74,32 +98,6 @@ def generator(image_shape):
 
     assert len(up_stacks_conv) == len(up_stacks_dropout) == len(up_stacks_scale)
     assert len(down_stacks_conv) == len(down_stacks_dropout) == len(down_stacks_scale)
-
-    def downsample(inputs, filter_count, conv_kernel_size=(3,3,), dropout_rate=0, downsample_num=0):
-        x = layers.Conv2D(filter_count, conv_kernel_size, strides=2 if downsample_num > 0 else 1, padding='same')(inputs)
-        for _ in range(downsample_num - 1):
-            x = layers.MaxPooling2D((2, 2,))(x)
-        x = layers.BatchNormalization()(x)
-        if dropout_rate != 0:
-            x = layers.Dropout(dropout_rate)(x)
-        outputs = layers.LeakyReLU()(x)
-        print(outputs)
-        print("\n\n\n")
-        return outputs
-
-    def upsample(decode_inputs, skip_inputs, filter_count, conv_kernel_size=(3, 3,), dropout_rate=0, upsample_num=0):
-        inputs = tf.keras.layers.Concatenate()([decode_inputs, skip_inputs])
-        x = layers.Conv2DTranspose(filter_count, conv_kernel_size, strides=2 if upsample_num > 0 else 1, padding='same')(inputs)
-        for _ in range(upsample_num - 1):
-            x = layers.UpSampling2D((2, 2,))(x)
-        x = layers.BatchNormalization()(x)
-        if dropout_rate != 0:
-            x = layers.Dropout(dropout_rate)(x)
-        outputs = layers.ReLU()(x)
-        print(outputs)
-        print("\n\n\n")
-        return outputs
-
     print("\n\n\n\n")
     s = inputs
     skips = []
@@ -116,41 +114,61 @@ def generator(image_shape):
     print("\n\n\n\n")
     return Model(inputs, s)
 
+# Discriminator
+# def discriminator_patchgan(image_shape, receptive_field=(70, 70)):
+    # run convolution across entire image and average the result
+    # TODO: Finish
+    # pass
+def discriminator(image_shape):
+    inputs = layers.Input((2,) + image_shape)
+    x = downsample(inputs, 128, downsample_num=1)
+    x = downsample(x, 64, downsample_num=1)
+    x = downsample(x, 32, downsample_num=1)
+    x = downsample(x, 8, downsample_num=1)
+    x = layers.Flatten()(x)
+    outputs = layers.Dense(1)(x)
+    return Model(inputs, outputs)
+
 
 generator_model = generator(image_shape)
 generator_model.summary()
+
+discriminator_model = discriminator(image_shape)
+discriminator_model.summary()
+
 
 # This may be garbage
 # visualkeras.layered_view(generator_model, legend=True, to_file='model.png')
 
 tf.keras.utils.plot_model(
     generator_model,
-    to_file="model.png",
+    to_file="model_generator.png",
     show_shapes=True,
     expand_nested=True
 )
-
-exit(0)
-
-# Discriminator
-
-from tensorflow.keras.datasets import mnist
-
-(mnist_train, _), (mnist_test, _) = mnist.load_data()
-mnist_train = mnist_train[:3000]
-mnist_test = mnist_test[:10]
-x_train = np.zeros((len(mnist_train),) + image_shape)
-x_test = np.zeros((len(mnist_test),) + image_shape)
-
-for i in range(len(mnist_train)):
-    x_train[i] = cv2.cvtColor(cv2.resize(mnist_train[i], (image_shape[0], image_shape[1],)), cv2.COLOR_GRAY2RGB)/255.0
-
-for i in range(len(mnist_test)):
-    x_test[i] = cv2.cvtColor(cv2.resize(mnist_test[i], (image_shape[0], image_shape[1],)), cv2.COLOR_GRAY2RGB)/255.0
-
-generator_model.compile(optimizer=tf.keras.optimizers.Adam(learning_rate=2e-4), loss='mean_squared_error', metrics=['MSE'])
-
-generator_model.fit(x_train, x_train, batch_size=128, epochs=10, shuffle=1, validation_data=(x_test, x_test))
+tf.keras.utils.plot_model(
+    discriminator_model,
+    to_file="model_discriminator.png",
+    show_shapes=True,
+    expand_nested=True
+)
+# from tensorflow.keras.datasets import mnist
+#
+# (mnist_train, _), (mnist_test, _) = mnist.load_data()
+# mnist_train = mnist_train[:3000]
+# mnist_test = mnist_test[:10]
+# x_train = np.zeros((len(mnist_train),) + image_shape)
+# x_test = np.zeros((len(mnist_test),) + image_shape)
+#
+# for i in range(len(mnist_train)):
+#     x_train[i] = cv2.cvtColor(cv2.resize(mnist_train[i], (image_shape[0], image_shape[1],)), cv2.COLOR_GRAY2RGB)/255.0
+#
+# for i in range(len(mnist_test)):
+#     x_test[i] = cv2.cvtColor(cv2.resize(mnist_test[i], (image_shape[0], image_shape[1],)), cv2.COLOR_GRAY2RGB)/255.0
+#
+# generator_model.compile(optimizer=tf.keras.optimizers.Adam(learning_rate=2e-4), loss='mean_squared_error', metrics=['MSE'])
+#
+# generator_model.fit(x_train, x_train, batch_size=128, epochs=10, shuffle=1, validation_data=(x_test, x_test))
 #
 
 # L1 Loss

@@ -55,6 +55,7 @@ Trained on comma10k dataset
 
 import tensorflow as tf
 from tensorflow.keras import Input, Model, layers
+import tensorflow.keras.backend as K
 import numpy as np
 import cv2
 
@@ -115,10 +116,14 @@ def generator(image_shape):
     return Model(inputs, s)
 
 # Discriminator
-# def discriminator_patchgan(image_shape, receptive_field=(70, 70)):
+
+'''
+def discriminator_patchgan(image_shape, receptive_field=(70, 70)):
     # run convolution across entire image and average the result
     # TODO: Finish
-    # pass
+    pass
+'''
+
 def discriminator(image_shape):
     inputs = layers.Input((2,) + image_shape)
     x = downsample(inputs, 128, downsample_num=1)
@@ -136,6 +141,20 @@ generator_model.summary()
 discriminator_model = discriminator(image_shape)
 discriminator_model.summary()
 
+# L1 Loss
+def l1_loss(orig_img, gen_img):
+    return tf.reduce_mean(tf.abs(tf.subtract(orig_img, gen_img))).numpy()
+
+def disc_l1_loss(real_output, fake_output, orig_imgs, gen_imgs, l1_weight_lambda=100):
+    binary_cross_entropy = tf.keras.losses.BinaryCrossEntropy()
+    # TODO:  put this in l1 loss function
+    total_l1_loss = np.mean([l1_loss(orig_imgs[img_i], gen_imgs[img_i]) for img_i in range(len(orig_imgs))])
+    # TODO: might be wrong
+    disc_loss = binary_cross_entropy(tf.ones_like(real_output), real_output) + binary_cross_entropy(tf.zeros_like(fake_output), fake_output)
+    weighted_loss = disc_loss + l1_weight_lambda * total_l1_loss
+    return weighted_loss
+
+
 
 # This may be garbage
 # visualkeras.layered_view(generator_model, legend=True, to_file='model.png')
@@ -152,28 +171,43 @@ tf.keras.utils.plot_model(
     show_shapes=True,
     expand_nested=True
 )
-# from tensorflow.keras.datasets import mnist
-#
-# (mnist_train, _), (mnist_test, _) = mnist.load_data()
-# mnist_train = mnist_train[:3000]
-# mnist_test = mnist_test[:10]
-# x_train = np.zeros((len(mnist_train),) + image_shape)
-# x_test = np.zeros((len(mnist_test),) + image_shape)
-#
-# for i in range(len(mnist_train)):
-#     x_train[i] = cv2.cvtColor(cv2.resize(mnist_train[i], (image_shape[0], image_shape[1],)), cv2.COLOR_GRAY2RGB)/255.0
-#
-# for i in range(len(mnist_test)):
-#     x_test[i] = cv2.cvtColor(cv2.resize(mnist_test[i], (image_shape[0], image_shape[1],)), cv2.COLOR_GRAY2RGB)/255.0
-#
-# generator_model.compile(optimizer=tf.keras.optimizers.Adam(learning_rate=2e-4), loss='mean_squared_error', metrics=['MSE'])
-#
-# generator_model.fit(x_train, x_train, batch_size=128, epochs=10, shuffle=1, validation_data=(x_test, x_test))
-#
-
-# L1 Loss
 
 # Train
+
+
+'''
+
+# testing L1 Loss
+orig_img = [[3, 4, 5,
+  6, 7, 8,
+  9, 6, 7]]
+gen_img = [[1, 2, 3,
+  4, 5, 6,
+  7, 8, 9]]
+
+print(l1_loss(orig_img, gen_img))
+'''
+'''
+from tensorflow.keras.datasets import mnist
+
+(mnist_train, train_y), (mnist_test, test_y) = mnist.load_data()
+mnist_train = mnist_train[:3000]
+train_y = train_y[:3000]
+mnist_test = mnist_test[:10]
+x_train = np.zeros((len(mnist_train),) + image_shape)
+x_test = np.zeros((len(mnist_test),) + image_shape)
+
+for i in range(len(mnist_train)):
+    x_train[i] = cv2.cvtColor(cv2.resize(mnist_train[i], (image_shape[0], image_shape[1],)), cv2.COLOR_GRAY2RGB)/255.0
+
+for i in range(len(mnist_test)):
+    x_test[i] = cv2.cvtColor(cv2.resize(mnist_test[i], (image_shape[0], image_shape[1],)), cv2.COLOR_GRAY2RGB)/255.0
+
+discriminator_model.compile(optimizer=tf.keras.optimizers.Adam(learning_rate=1e-4), loss='categorical_crossentropy', metrics=['Accuracy'])
+
+discriminator_model.fit(x_train, tf.keras.utils.to_categorical(train_y, 10), batch_size=128, epochs=10, shuffle=1)
+'''
+
 
 
 

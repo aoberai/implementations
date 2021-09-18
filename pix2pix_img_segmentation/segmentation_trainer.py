@@ -147,9 +147,6 @@ discriminator_model.summary()
 
 # L1 Loss
 def l1_loss(orig_imgs, gen_imgs):
-    print(orig_imgs[0])
-    print(gen_imgs[0])
-
     l1_losses = [tf.reduce_mean(tf.abs(tf.subtract(orig_imgs[img_i], gen_imgs[img_i]))) for img_i in range(len(orig_imgs))]
     return tf.reduce_mean(l1_losses)
 
@@ -192,53 +189,60 @@ def train_step(input_imgs, target_imgs):
 
 
 def fit(epochs=10, batch_size=64):
-    train_x_path = "/home/aoberai/programming/ml-datasets/comma10k/imgs/"
-    train_x_img_paths = [os.path.join(train_x_path, img_name) for img_name in os.listdir(train_x_path)]
+    for epoch in range(epochs):
+        steps = 0
+        print("\n\nEpoch:", epoch, "\n\n")
+        train_x_path = "/home/aoberai/programming/ml-datasets/comma10k/imgs/"
+        train_x_img_paths = [os.path.join(train_x_path, img_name) for img_name in os.listdir(train_x_path)]
+        trainset_size = len(train_x_img_paths)
 
-    train_y_path = "/home/aoberai/programming/ml-datasets/comma10k/masks/"
-    train_y_img_paths = [os.path.join(train_y_path, img_name) for img_name in os.listdir(train_y_path)]
-    # test_x_path = "/home/aoberai/programming/ml-datasets/comma10k/imgs2"
-    # test_y_path = "/home/aoberai/programming/ml-datasets/comma10k/masks2"
+        train_y_path = "/home/aoberai/programming/ml-datasets/comma10k/masks/"
+        train_y_img_paths = [os.path.join(train_y_path, img_name) for img_name in os.listdir(train_y_path)]
 
-    # shuffle
-    seed = np.random.randint(100)
-    np.random.seed(seed)
-    np.random.shuffle(train_x_img_paths)
-    np.random.seed(seed)
-    np.random.shuffle(train_y_img_paths)
+        # shuffle
+        seed = np.random.randint(100)
+        np.random.seed(seed)
+        np.random.shuffle(train_x_img_paths)
+        np.random.seed(seed)
+        np.random.shuffle(train_y_img_paths)
 
-    img_batch = []
-    x_img_path_batch = train_x_img_paths[:128]
-    y_img_path_batch = train_y_img_paths[:128]
-    del train_x_img_paths[:128]
-    del train_y_img_paths[:128]
-    for (x_img_path, y_img_path) in zip(x_img_path_batch, y_img_path_batch):
-        rd_seed = np.random.randint(100)
-        x_img = cv2.imread(x_img_path)
-        x_scaling_factor = image_shape[0]/np.shape(x_img)[0]
-        x_img = cv2.resize(x_img, None, fx=x_scaling_factor, fy=x_scaling_factor)
-        y_img = cv2.imread(y_img_path)
-        y_scaling_factor = image_shape[0]/np.shape(y_img)[0]
-        y_img = cv2.resize(y_img, None, fx=y_scaling_factor, fy=y_scaling_factor)
-        img_batch.append(tf.image.random_crop(value=np.stack((x_img, y_img), axis=0), size=(2,) + image_shape, seed=rd_seed).numpy())
+        while True:
+            img_batch = []
+            x_img_path_batch = train_x_img_paths[:batch_size]
+            y_img_path_batch = train_y_img_paths[:batch_size]
+            if len(x_img_path_batch) < batch_size:
+                break
+            del train_x_img_paths[:batch_size]
+            del train_y_img_paths[:batch_size]
+            for (x_img_path, y_img_path) in zip(x_img_path_batch, y_img_path_batch):
+                rd_seed = np.random.randint(100)
+                x_img = cv2.imread(x_img_path)
+                x_scaling_factor = image_shape[0]/np.shape(x_img)[0]
+                x_img = cv2.resize(x_img, None, fx=x_scaling_factor, fy=x_scaling_factor)
+                y_img = cv2.imread(y_img_path)
+                y_scaling_factor = image_shape[0]/np.shape(y_img)[0]
+                y_img = cv2.resize(y_img, None, fx=y_scaling_factor, fy=y_scaling_factor)
+                img_batch.append(tf.image.random_crop(value=np.stack((x_img, y_img), axis=0), size=(2,) + image_shape, seed=rd_seed).numpy())
 
-        # TODO: normalization
+                '''
+                Img Visualization
+                cv2.imshow("X", x_img)
+                cv2.imshow("X", img_batch[-1][0])
+                cv2.waitKey(1)
+                cv2.imshow("Y", y_img)
+                cv2.imshow("Y", img_batch[-1][1])
+                cv2.waitKey(1)
+                time.sleep(5)
+                '''
 
-        '''
-        Img Visualization
-        cv2.imshow("X", x_img)
-        cv2.imshow("X", img_batch[-1][0])
-        cv2.waitKey(1)
-        cv2.imshow("Y", y_img)
-        cv2.imshow("Y", img_batch[-1][1])
-        cv2.waitKey(1)
-        time.sleep(5)
-        '''
+            img_batch = np.swapaxes(np.array(np.divide(img_batch, 255), dtype="float32"), 0, 1)
+            train_step(img_batch[0], img_batch[1])
+            steps+=1
+            print("Steps:%d -- Progress:%0.4f" % (steps, steps / (trainset_size // batch_size)), end="\r")
+        generator_model.save("GeneratorEpoch%s.h5" % epoch)
 
-    img_batch = np.swapaxes(np.array(np.divide(img_batch, 255), dtype="float32"), 0, 1)
-    train_step(img_batch[0], img_batch[1])
 
-fit(batch_size=1)
+fit(epochs=10, batch_size=32)
 
 '''
 # testing L1 Loss

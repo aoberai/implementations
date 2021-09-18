@@ -3,13 +3,13 @@ import os
 import numpy as np
 import tensorflow as tf
 
-generator_model = tf.keras.models.load_model("GeneratorEpoch9.h5")
+generator_model = tf.keras.models.load_model("models/v1/GeneratorEpoch10.h5")
 image_shape = (256, 256, 3)
 
-test_x_path = "/home/aoberai/programming/ml-datasets/comma10k/imgs2/"
+test_x_path = "/home/aoberai/programming/ml-datasets/comma10k/imgs/"
 test_x_img_paths = [os.path.join(test_x_path, img_name) for img_name in os.listdir(test_x_path)]
 
-test_y_path = "/home/aoberai/programming/ml-datasets/comma10k/masks2/"
+test_y_path = "/home/aoberai/programming/ml-datasets/comma10k/masks/"
 test_y_img_paths = [os.path.join(test_y_path, img_name) for img_name in os.listdir(test_y_path)]
 
 # shuffle
@@ -27,6 +27,6 @@ for i in range(len(test_x_img_paths)):
     print(gen_img)
     cv2.imshow("Orig", x_img)
     cv2.imshow("Gen", gen_img)
-    cv2.waitKey(1000)
+    cv2.waitKey()
 
 

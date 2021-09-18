@@ -209,18 +209,21 @@ def fit(epochs=10, batch_size=64):
     del train_x_img_paths[:128]
     del train_y_img_paths[:128]
     for (x_img_path, y_img_path) in zip(x_img_path_batch, y_img_path_batch):
-        x_img_batch, y_img_batch = [], []
+        img_batch = []
         rd_seed = np.random.randint(10)
         x_img = cv2.imread(x_img_path)
+        x_scaling_factor = image_shape[0]/np.shape(x_img)[0]
+        x_img = cv2.resize(x_img, None, fx=x_scaling_factor, fy=x_scaling_factor)
         y_img = cv2.imread(y_img_path)
-        x_img_batch.append(tf.image.random_crop(value=x_img, size=image_shape, seed=rd_seed).numpy())
-        y_img_batch.append(tf.image.random_crop(value=y_img, size=image_shape, seed=rd_seed).numpy())
+        y_scaling_factor = image_shape[0]/np.shape(y_img)[0]
+        y_img = cv2.resize(y_img, None, fx=y_scaling_factor, fy=y_scaling_factor)
+        img_batch.append(tf.image.random_crop(value=np.stack((x_img, y_img), axis=0), size=(2,) + image_shape, seed=rd_seed).numpy())
 
         # cv2.imshow("X", x_img)
-        cv2.imshow("X", x_img_batch[-1])
+        cv2.imshow("X", img_batch[-1][0])
         cv2.waitKey(1)
         # cv2.imshow("Y", y_img)
-        cv2.imshow("Y", y_img_batch[-1])
+        cv2.imshow("Y", img_batch[-1][1])
         cv2.waitKey(1)
         time.sleep(5)
 

@@ -75,12 +75,14 @@ def downsample(inputs, filter_count, conv_kernel_size=(3,3,), dropout_rate=0, do
     print("\n\n\n")
     return outputs
 
-def upsample(decode_inputs, skip_inputs, filter_count, conv_kernel_size=(3, 3,), dropout_rate=0, upsample_num=0):
+# TODO: no batch norm on output data in final layers?
+def upsample(decode_inputs, skip_inputs, filter_count, conv_kernel_size=(3, 3,), dropout_rate=0, upsample_num=0, apply_batchnorm=False):
     inputs = tf.keras.layers.Concatenate()([decode_inputs, skip_inputs])
     x = layers.Conv2DTranspose(filter_count, conv_kernel_size, strides=2 if upsample_num > 0 else 1, padding='same')(inputs)
     for _ in range(upsample_num - 1):
         x = layers.UpSampling2D((2, 2,))(x)
-    x = layers.BatchNormalization()(x)
+    if apply_batchnorm:
+        x = layers.BatchNormalization()(x)
     if dropout_rate != 0:
         x = layers.Dropout(dropout_rate)(x)
     outputs = layers.ReLU()(x)
@@ -96,6 +98,7 @@ def generator(image_shape):
     down_stacks_conv = [64, 32, 3]
     up_stacks_scale = [("DownSample",1), ("DownSample",1), ("DownSample",2)]
     down_stacks_scale = [("UpSample",2), ("UpSample",1), ("UpSample",1)]
+    down_stacks_batchnorm = [False, False, False]
     up_stacks_dropout = [0, 0, 0]
     down_stacks_dropout = [0.2, 0.2, 0.2]
 
@@ -111,7 +114,7 @@ def generator(image_shape):
         skips.append(s)
     for i in range(len(down_stacks_conv)):
         # upsample; decoder
-        s = upsample(s, skips[-1], down_stacks_conv[i], (3, 3), down_stacks_dropout[i], down_stacks_scale[i][1] if down_stacks_scale[i][0]=="UpSample" else 0)
+        s = upsample(s, skips[-1], down_stacks_conv[i], (3, 3), down_stacks_dropout[i], down_stacks_scale[i][1] if down_stacks_scale[i][0]=="UpSample" else 0, apply_batchnorm=down_stacks_batchnorm[i])
         del skips[-1]
 
     print("\n\n\n\n")
@@ -145,6 +148,19 @@ generator_model.summary()
 discriminator_model = discriminator(image_shape)
 discriminator_model.summary()
 
+tf.keras.utils.plot_model(
+    generator_model,
+    to_file="model_generator.png",
+    show_shapes=True,
+    expand_nested=True
+)
+tf.keras.utils.plot_model(
+    discriminator_model,
+    to_file="model_discriminator.png",
+    show_shapes=True,
+    expand_nested=True
+)
+
 # L1 Loss
 def l1_loss(orig_imgs, gen_imgs):
     l1_losses = [tf.reduce_mean(tf.abs(tf.subtract(orig_imgs[img_i], gen_imgs[img_i]))) for img_i in range(len(orig_imgs))]
@@ -162,7 +178,6 @@ def gen_l1_loss_func(disc_fake_output, target_imgs, gen_imgs, l1_weight_lambda=1
     l1_loss_val = l1_loss(target_imgs, gen_imgs)
     # generator wants discriminator to think generated images are real
     disc_loss_val = binary_cross_entropy(tf.ones_like(disc_fake_output), disc_fake_output)
-
     weighted_loss = disc_loss_val + l1_weight_lambda * l1_loss_val
     return weighted_loss, disc_loss_val, l1_loss_val
 
@@ -176,7 +191,7 @@ def train_step(input_imgs, target_imgs):
         disc_fake_output = discriminator_model([input_imgs, gen_imgs], training=True)
         disc_real_output = discriminator_model([input_imgs, target_imgs], training=True)
 
-        gen_loss = gen_l1_loss_func(disc_fake_output, target_imgs, gen_imgs)[0]
+        gen_loss = gen_l1_loss_func(disc_fake_output, target_imgs, gen_imgs, l1_weight_lambda=150)[0]
         disc_loss = disc_loss_func(disc_real_output, disc_fake_output)
 
         gen_grads = gen_tape.gradient(gen_loss, generator_model.trainable_variables)
@@ -206,19 +221,7 @@ def fit(epochs=10, batch_size=64):
         np.random.seed(seed)
         np.random.shuffle(train_y_img_paths)
 
-        '''
-        Debug Gan Status
-        x_img = cv2.imread(train_x_img_paths[0])
-        x_scaling_factor = image_shape[0]/np.shape(x_img)[0]
-        x_img = tf.image.random_crop(value=cv2.resize(x_img, None, fx=x_scaling_factor, fy=x_scaling_factor), size=image_shape).numpy()
-        gen_img = np.multiply(generator_model.predict(np.expand_dims(x_img, 0)), 255)[0]
-
-        cv2.imshow("Orig", x_img)
-        cv2.imshow("Gen", gen_img)
-        cv2.waitKey(1000)
-
-        '''
-
+        
         while True:
             img_batch = []
             x_img_path_batch = train_x_img_paths[:batch_size]
@@ -250,14 +253,36 @@ def fit(epochs=10, batch_size=64):
                 time.sleep(5)
                 '''
 
-            img_batch = np.swapaxes(np.array(np.divide(img_batch, 255), dtype="float32"), 0, 1)
+            # img_batch = np.swapaxes(np.array(np.divide(img_batch, 255), dtype="float32"), 0, 1)
+            img_batch = np.swapaxes(np.array(img_batch, dtype="float32"), 0, 1) # TODO: why float 32
             train_step(img_batch[0], img_batch[1])
             steps+=1
             print("Steps:%d -- Progress:%0.4f" % (steps, steps / (trainset_size // batch_size)), end="\r")
+
+            try:
+                # Debug Gan Status
+                x_img = cv2.imread(train_x_img_paths[-1])
+                y_img = cv2.imread(train_y_img_paths[-1])
+
+                x_scaling_factor = image_shape[0]/np.shape(x_img)[0]
+                x_img = tf.image.random_crop(value=cv2.resize(x_img, None, fx=x_scaling_factor, fy=x_scaling_factor), size=image_shape).numpy()
+                gen_img = np.round(generator_model.predict(np.expand_dims(x_img, 0))[0]).astype(np.uint8) # TODO: np round is because if channel vals are floats, then it displays rgb from 0 - 1 where we want image to be generated from 0 - 255
+                # gen_img = generator_model.predict(np.expand_dims(x_img, 0))[0] 
+                # stacked_img = np.concatenate([x_img, gen_img, cv2.resize(y_img, image_shape[:2])], axis=1)
+                # cv2.imshow("Visualizer", stacked_img)
+                cv2.imshow("Original", x_img)
+                cv2.imshow("Generated", gen_img)
+                cv2.imshow("Target", cv2.resize(y_img, image_shape[:2]))
+                if steps % 100 == 0:
+                    print(gen_img)
+                cv2.waitKey(1)
+            except Exception as e:
+                pass
+
         generator_model.save("GeneratorEpoch%s.h5" % epoch)
 
 
-fit(epochs=10, batch_size=16)
+fit(epochs=100, batch_size=16)
 
 '''
 # testing L1 Loss
@@ -277,42 +302,3 @@ print(l1_loss(orig_imgs, gen_imgs).numpy())
 exit(0)
 '''
 
-# This may be garbage
-# visualkeras.layered_view(generator_model, legend=True, to_file='model.png')
-
-tf.keras.utils.plot_model(
-    generator_model,
-    to_file="model_generator.png",
-    show_shapes=True,
-    expand_nested=True
-)
-tf.keras.utils.plot_model(
-    discriminator_model,
-    to_file="model_discriminator.png",
-    show_shapes=True,
-    expand_nested=True
-)
-
-# Train
-
-
-'''
-from tensorflow.keras.datasets import mnist
-
-(mnist_train, train_y), (mnist_test, test_y) = mnist.load_data()
-mnist_train = mnist_train[:3000]
-train_y = train_y[:3000]
-mnist_test = mnist_test[:10]
-x_train = np.zeros((len(mnist_train),) + image_shape)
-x_test = np.zeros((len(mnist_test),) + image_shape)
-
-for i in range(len(mnist_train)):
-    x_train[i] = cv2.cvtColor(cv2.resize(mnist_train[i], (image_shape[0], image_shape[1],)), cv2.COLOR_GRAY2RGB)/255.0
-
-for i in range(len(mnist_test)):
-    x_test[i] = cv2.cvtColor(cv2.resize(mnist_test[i], (image_shape[0], image_shape[1],)), cv2.COLOR_GRAY2RGB)/255.0
-
-discriminator_model.compile(optimizer=tf.keras.optimizers.Adam(learning_rate=1e-4), loss='categorical_crossentropy', metrics=['Accuracy'])
-
-discriminator_model.fit(x_train, tf.keras.utils.to_categorical(train_y, 10), batch_size=128, epochs=10, shuffle=1)
-'''

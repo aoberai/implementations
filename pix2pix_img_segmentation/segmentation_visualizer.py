@@ -3,7 +3,7 @@ import os
 import numpy as np
 import tensorflow as tf
 
-generator_model = tf.keras.models.load_model("GeneratorEpoch1.h5")
+generator_model = tf.keras.models.load_model("GeneratorEpoch9.h5")
 image_shape = (256, 256, 3)
 
 test_x_path = "/home/aoberai/programming/ml-datasets/comma10k/imgs2/"
@@ -23,7 +23,7 @@ for i in range(len(test_x_img_paths)):
     x_img = cv2.imread(test_x_img_paths[i])
     x_scaling_factor = image_shape[0]/np.shape(x_img)[0]
     x_img = tf.image.random_crop(value=cv2.resize(x_img, None, fx=x_scaling_factor, fy=x_scaling_factor), size=image_shape).numpy()
-    gen_img = np.multiply(generator_model.predict(np.expand_dims(x_img, 0)), 255)[0]
+    gen_img = np.multiply(generator_model.predict(np.expand_dims(x_img, 0))[0], 255)
 
     cv2.imshow("Orig", x_img)
     cv2.imshow("Gen", gen_img)

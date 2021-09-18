@@ -206,6 +206,19 @@ def fit(epochs=10, batch_size=64):
         np.random.seed(seed)
         np.random.shuffle(train_y_img_paths)
 
+        '''
+        Debug Gan Status
+        x_img = cv2.imread(train_x_img_paths[0])
+        x_scaling_factor = image_shape[0]/np.shape(x_img)[0]
+        x_img = tf.image.random_crop(value=cv2.resize(x_img, None, fx=x_scaling_factor, fy=x_scaling_factor), size=image_shape).numpy()
+        gen_img = np.multiply(generator_model.predict(np.expand_dims(x_img, 0)), 255)[0]
+
+        cv2.imshow("Orig", x_img)
+        cv2.imshow("Gen", gen_img)
+        cv2.waitKey(1000)
+
+        '''
+
         while True:
             img_batch = []
             x_img_path_batch = train_x_img_paths[:batch_size]
@@ -216,6 +229,8 @@ def fit(epochs=10, batch_size=64):
             del train_y_img_paths[:batch_size]
             for (x_img_path, y_img_path) in zip(x_img_path_batch, y_img_path_batch):
                 rd_seed = np.random.randint(100)
+
+                # TODO put in preprocessing block
                 x_img = cv2.imread(x_img_path)
                 x_scaling_factor = image_shape[0]/np.shape(x_img)[0]
                 x_img = cv2.resize(x_img, None, fx=x_scaling_factor, fy=x_scaling_factor)
@@ -242,7 +257,7 @@ def fit(epochs=10, batch_size=64):
         generator_model.save("GeneratorEpoch%s.h5" % epoch)
 
 
-fit(epochs=10, batch_size=32)
+fit(epochs=10, batch_size=16)
 
 '''
 # testing L1 Loss

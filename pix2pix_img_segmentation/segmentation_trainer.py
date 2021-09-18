@@ -24,7 +24,7 @@ How this solution works:
 
 Difference between normal gan architecture is that in a pix2pix GAN, both the generator and discriminator see the input image; the generator, instead of taking in only random noise(which is optional), takes in the input image which is to be translated to a different format.
 
-We can mix discriminator loss with simple traditiona L1 or L2 loss (L1 encourages less blurring and prevents mode collapse (where generated samples are very similar)) -> groundtruths result for early iterations when discriminator not working well
+We can mix discriminator loss with simple traditional L1 or L2 loss (L1 encourages less blurring compared to l2) and prevents mode collapse (where generated samples are very similar)) -> groundtruths result for early iterations when discriminator not working well
 
 For a lil bit of variation, you can apply dropout on the generator at both training and inference time instead of gaussian noise z (latent vector) which is often times just ignored by network.
 
@@ -57,7 +57,9 @@ import tensorflow as tf
 from tensorflow.keras import Input, Model, layers
 import tensorflow.keras.backend as K
 import numpy as np
+import os
 import cv2
+import time
 
 image_shape = (256, 256, 3)
 
@@ -125,14 +127,16 @@ def discriminator_patchgan(image_shape, receptive_field=(70, 70)):
 '''
 
 def discriminator(image_shape):
-    inputs = layers.Input((2,) + image_shape)
-    x = downsample(inputs, 128, downsample_num=1)
+    input_img = layers.Input(image_shape, name='input img')
+    target_img = layers.Input(image_shape, name='target img')
+    x = layers.concatenate([input_img, target_img])
+    x = downsample(x, 128, downsample_num=1)
     x = downsample(x, 64, downsample_num=1)
     x = downsample(x, 32, downsample_num=1)
     x = downsample(x, 8, downsample_num=1)
     x = layers.Flatten()(x)
     outputs = layers.Dense(1)(x)
-    return Model(inputs, outputs)
+    return Model([input_img, target_img], outputs)
 
 
 generator_model = generator(image_shape)
@@ -142,19 +146,85 @@ discriminator_model = discriminator(image_shape)
 discriminator_model.summary()
 
 # L1 Loss
-def l1_loss(orig_img, gen_img):
-    return tf.reduce_mean(tf.abs(tf.subtract(orig_img, gen_img))).numpy()
-
-def disc_l1_loss(real_output, fake_output, orig_imgs, gen_imgs, l1_weight_lambda=100):
-    binary_cross_entropy = tf.keras.losses.BinaryCrossEntropy()
-    # TODO:  put this in l1 loss function
-    total_l1_loss = np.mean([l1_loss(orig_imgs[img_i], gen_imgs[img_i]) for img_i in range(len(orig_imgs))])
-    # TODO: might be wrong
-    disc_loss = binary_cross_entropy(tf.ones_like(real_output), real_output) + binary_cross_entropy(tf.zeros_like(fake_output), fake_output)
-    weighted_loss = disc_loss + l1_weight_lambda * total_l1_loss
-    return weighted_loss
+def l1_loss(orig_imgs, gen_imgs):
+    return np.mean([tf.reduce_mean(tf.abs(tf.subtract(orig_imgs[img_i], gen_imgs[img_i]))).numpy() for img_i in range(len(orig_imgs))])
 
 
+binary_cross_entropy = tf.keras.losses.BinaryCrossentropy(from_logits=True)
+def disc_l1_loss_func(real_output, fake_output):
+    # discriminator loss: real images as real and fake as fake
+    disc_loss_val = binary_cross_entropy(tf.ones_like(real_output), real_output) + binary_cross_entropy(tf.zeros_like(fake_output), fake_output)
+    return disc_loss_val
+
+def gen_loss_func(disc_fake_output, target_imgs, gen_imgs, l1_weight_lambda=100):
+    # l1 loss to prevent mode collapse and groundtruth
+    l1_loss_val = l1_loss(target_imgs, gen_imgs)
+    # generator wants discriminator to think generated images are real
+    disc_loss_val = binary_cross_entropy(tf.ones_like(disc_fake_output), disc_fake_output)
+
+    weighted_loss = disc_loss_val + l1_weight_lambda * l1_loss_val
+    return weighted_loss, disc_loss_val, l1_loss_val
+
+gen_optim = tf.keras.optimizers.Adam(2e-4, beta_1=0.5)
+disc_optim = tf.keras.optimizers.Adam(2e-4, beta_1=0.5)
+
+@tf.function
+def train_step(input_imgs, target_imgs, step):
+    with tf.GradientTape() as gen_tape, tf.GradientTape() as disc_tape:
+        gen_imgs = generator_model(input_imgs, training=True)
+        disc_fake_output = discriminator_model([input_imgs, gen_imgs], training=True)
+        disc_real_output = discriminator_model([input_imgs, target_imgs], training=True)
+
+        gen_loss = gen_loss_func(disc_fake_output, target_imgs, gen_imgs)[0]
+        disc_loss = disc_l1_loss_func(disc_real_output, disc_fake_output)
+
+        gen_grads = gen_tape.gradient(gen_loss, generator.trainable_variables)
+        disc_grads = disc_tape.gradient(disc_loss, discriminator.trainable_variables)
+
+        gen_optim.apply_gradients(zip(gen_grads,
+                                      generator.trainable_variables))
+        disc_optim.apply_gradients(zip(disc_grads,
+                                       discriminator.trainable_variables))
+
+
+def fit(epochs=10, batch_size=64):
+    train_x_path = "/home/aoberai/programming/ml-datasets/comma10k/imgs/"
+    train_x_img_paths = [os.path.join(train_x_path, img_name) for img_name in os.listdir(train_x_path)]
+
+    train_y_path = "/home/aoberai/programming/ml-datasets/comma10k/masks/"
+    train_y_img_paths = [os.path.join(train_y_path, img_name) for img_name in os.listdir(train_y_path)]
+
+    # test_x_path = "/home/aoberai/programming/ml-datasets/comma10k/imgs2"
+    # test_y_path = "/home/aoberai/programming/ml-datasets/comma10k/masks2"
+
+    # shuffle
+    np.random.seed(100)
+    np.random.shuffle(train_x_img_paths)
+    np.random.seed(100)
+    np.random.shuffle(train_y_img_paths)
+
+
+    x_img_path_batch = train_x_img_paths[:128]
+    y_img_path_batch = train_y_img_paths[:128]
+    del train_x_img_paths[:128]
+    del train_y_img_paths[:128]
+    for (x_img_path, y_img_path) in zip(x_img_path_batch, y_img_path_batch):
+        x_img_batch, y_img_batch = [], []
+        rd_seed = np.random.randint(10)
+        x_img = cv2.imread(x_img_path)
+        y_img = cv2.imread(y_img_path)
+        x_img_batch.append(tf.image.random_crop(value=x_img, size=image_shape, seed=rd_seed).numpy())
+        y_img_batch.append(tf.image.random_crop(value=y_img, size=image_shape, seed=rd_seed).numpy())
+
+        # cv2.imshow("X", x_img)
+        cv2.imshow("X", x_img_batch[-1])
+        cv2.waitKey(1)
+        # cv2.imshow("Y", y_img)
+        cv2.imshow("Y", y_img_batch[-1])
+        cv2.waitKey(1)
+        time.sleep(5)
+
+fit()
 
 # This may be garbage
 # visualkeras.layered_view(generator_model, legend=True, to_file='model.png')
@@ -173,7 +243,6 @@ tf.keras.utils.plot_model(
 )
 
 # Train
-
 
 '''
 
@@ -207,12 +276,3 @@ discriminator_model.compile(optimizer=tf.keras.optimizers.Adam(learning_rate=1e-
 
 discriminator_model.fit(x_train, tf.keras.utils.to_categorical(train_y, 10), batch_size=128, epochs=10, shuffle=1)
 '''
-
-
-
-
-
-
-
-
-

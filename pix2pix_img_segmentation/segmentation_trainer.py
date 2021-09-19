@@ -94,14 +94,15 @@ def upsample(decode_inputs, skip_inputs, filter_count, conv_kernel_size=(3, 3,),
 def generator(image_shape):
 
     inputs = Input(image_shape)
-    up_stacks_conv = [32, 64, 128]
-    down_stacks_conv = [64, 32, 3]
-    up_stacks_scale = [("DownSample",1), ("DownSample",1), ("DownSample",2)]
-    down_stacks_scale = [("UpSample",2), ("UpSample",1), ("UpSample",1)]
-    down_stacks_batchnorm = [False, False, False]
-    up_stacks_dropout = [0, 0, 0]
+    # TODO: clean up
+    up_stacks_conv = [32, 128, 256, 512]
+    down_stacks_conv = [256, 128, 32, 3]
+    up_stacks_scale = [("DownSample",1), ("DownSample",1), ("DownSample",2), ("DownSample",1)]
+    down_stacks_scale = [("UpSample", 1), ("UpSample",2), ("UpSample",1), ("UpSample",1)]
+    down_stacks_batchnorm = [False, False, False, False]
+    up_stacks_dropout = [0, 0, 0, 0]
     # down_stacks_dropout = [0.2, 0.2, 0.2]
-    down_stacks_dropout = [0, 0, 0]
+    down_stacks_dropout = [0, 0, 0, 0]
 
     assert len(up_stacks_conv) == len(up_stacks_dropout) == len(up_stacks_scale)
     assert len(down_stacks_conv) == len(down_stacks_dropout) == len(down_stacks_scale)
@@ -111,11 +112,11 @@ def generator(image_shape):
 
     for i in range(len(up_stacks_conv)):
         # downsample; encoder
-        s = downsample(s, up_stacks_conv[i], (3, 3,), up_stacks_dropout[i], up_stacks_scale[i][1] if up_stacks_scale[i][0]=="DownSample" else 0)
+        s = downsample(s, up_stacks_conv[i], (5, 5,), up_stacks_dropout[i], up_stacks_scale[i][1] if up_stacks_scale[i][0]=="DownSample" else 0)
         skips.append(s)
     for i in range(len(down_stacks_conv)):
         # upsample; decoder
-        s = upsample(s, skips[-1], down_stacks_conv[i], (3, 3), down_stacks_dropout[i], down_stacks_scale[i][1] if down_stacks_scale[i][0]=="UpSample" else 0, apply_batchnorm=down_stacks_batchnorm[i])
+        s = upsample(s, skips[-1], down_stacks_conv[i], (5, 5), down_stacks_dropout[i], down_stacks_scale[i][1] if down_stacks_scale[i][0]=="UpSample" else 0, apply_batchnorm=down_stacks_batchnorm[i])
         del skips[-1]
 
     print("\n\n\n\n")
@@ -134,10 +135,10 @@ def discriminator(image_shape):
     input_img = layers.Input(image_shape, name='input img')
     target_img = layers.Input(image_shape, name='target img')
     x = layers.concatenate([input_img, target_img])
+    x = downsample(x, 256, downsample_num=1)
     x = downsample(x, 128, downsample_num=1)
     x = downsample(x, 64, downsample_num=1)
-    x = downsample(x, 32, downsample_num=1)
-    x = downsample(x, 8, downsample_num=1)
+    x = downsample(x, 16, downsample_num=1)
     x = layers.Flatten()(x)
     outputs = layers.Dense(1)(x)
     return Model([input_img, target_img], outputs)
@@ -179,6 +180,8 @@ def gen_l1_loss_func(disc_fake_output, target_imgs, gen_imgs, l1_weight_lambda=1
     l1_loss_val = l1_loss(target_imgs, gen_imgs)
     # generator wants discriminator to think generated images are real
     disc_loss_val = binary_cross_entropy(tf.ones_like(disc_fake_output), disc_fake_output)
+    # temp
+    disc_loss_val = 0
     weighted_loss = disc_loss_val + l1_weight_lambda * l1_loss_val
     return weighted_loss, disc_loss_val, l1_loss_val
 
@@ -241,6 +244,7 @@ def fit(epochs=10, batch_size=64):
                 y_img = cv2.imread(y_img_path)
                 y_scaling_factor = image_shape[0]/np.shape(y_img)[0]
                 y_img = cv2.resize(y_img, None, fx=y_scaling_factor, fy=y_scaling_factor)
+
                 img_batch.append(tf.image.random_crop(value=np.stack((x_img, y_img), axis=0), size=(2,) + image_shape, seed=rd_seed).numpy())
 
                 '''
@@ -254,36 +258,35 @@ def fit(epochs=10, batch_size=64):
                 time.sleep(5)
                 '''
 
-            # img_batch = np.swapaxes(np.array(np.divide(img_batch, 255), dtype="float32"), 0, 1)
             img_batch = np.swapaxes(np.array(img_batch, dtype="float32"), 0, 1) # TODO: why float 32
             train_step(img_batch[0], img_batch[1])
             steps+=1
             print("Steps:%d -- Progress:%0.4f" % (steps, steps / (trainset_size // batch_size)), end="\r")
-            if epoch >= 2:
-                try:
-                    # Debug Gan Status
-                    x_img = cv2.imread(train_x_img_paths[-1])
-                    y_img = cv2.imread(train_y_img_paths[-1])
+            # if epoch >= 2:
+            try:
+                # Visualize Gan Status
+                x_img = cv2.imread(train_x_img_paths[-1])
+                y_img = cv2.imread(train_y_img_paths[-1])
 
-                    x_scaling_factor = image_shape[0]/np.shape(x_img)[0]
-                    x_img = tf.image.random_crop(value=cv2.resize(x_img, None, fx=x_scaling_factor, fy=x_scaling_factor), size=image_shape).numpy()
-                    gen_img = np.round(generator_model.predict(np.expand_dims(x_img, 0))[0]).astype(np.uint8) # TODO: np round is because if channel vals are floats, then it displays rgb from 0 - 1 where we want image to be generated from 0 - 255
-                    # gen_img = generator_model.predict(np.expand_dims(x_img, 0))[0] 
-                    # stacked_img = np.concatenate([x_img, gen_img, cv2.resize(y_img, image_shape[:2])], axis=1)
-                    # cv2.imshow("Visualizer", stacked_img)
-                    cv2.imshow("Original", x_img)
-                    cv2.imshow("Generated", gen_img)
-                    cv2.imshow("Target", cv2.resize(y_img, image_shape[:2]))
-                    if steps % 100 == 0:
-                        print(gen_img)
-                    cv2.waitKey(1)
-                except Exception as e:
-                    pass
+                x_scaling_factor = image_shape[0]/np.shape(x_img)[0]
+                x_img = tf.image.random_crop(value=cv2.resize(x_img, None, fx=x_scaling_factor, fy=x_scaling_factor), size=image_shape).numpy()
+                gen_img = np.round(generator_model.predict(np.expand_dims(x_img, 0))[0]).astype(np.uint8) # TODO: np round is because if channel vals are floats, then it displays rgb from 0 - 1 where we want image to be generated from 0 - 255
+                # gen_img = generator_model.predict(np.expand_dims(x_img, 0))[0] 
+                # stacked_img = np.concatenate([x_img, gen_img, cv2.resize(y_img, image_shape[:2])], axis=1)
+                # cv2.imshow("Visualizer", stacked_img)
+                cv2.imshow("Original", x_img)
+                cv2.imshow("Generated", gen_img)
+                cv2.imshow("Target", cv2.resize(y_img, image_shape[:2]))
+                if steps % 100 == 0:
+                    print(gen_img)
+                cv2.waitKey(1)
+            except Exception as e:
+                pass
 
         generator_model.save("GeneratorEpoch%s.h5" % epoch)
 
 
-fit(epochs=100, batch_size=24)
+fit(epochs=100, batch_size=4)
 
 '''
 # testing L1 Loss

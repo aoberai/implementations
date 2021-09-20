@@ -3,7 +3,7 @@ import os
 import numpy as np
 import tensorflow as tf
 
-generator_model = tf.keras.models.load_model("models/v2/GeneratorEpoch10.h5")
+generator_model = tf.keras.models.load_model("models/v2/GeneratorEpoch9.h5")
 image_shape = (256, 256, 3)
 
 
@@ -16,7 +16,7 @@ while True:
         break
     img = cv2.resize(img, image_shape[:2])
     gen_img = (generator_model.predict(np.expand_dims(img, 0))[0]).astype(np.uint8)
-
+    assert np.max(gen_img) <= 255 and np.min(gen_img) >= 0
     cv2.imshow("", cv2.hconcat((img, gen_img)))
     cv2.waitKey(1)
 

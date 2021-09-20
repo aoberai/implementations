@@ -59,7 +59,6 @@ import tensorflow.keras.backend as K
 import numpy as np
 import os
 import cv2
-import time
 
 image_shape = (256, 256, 3)
 
@@ -225,7 +224,7 @@ def fit(epochs=10, batch_size=64):
         np.random.seed(seed)
         np.random.shuffle(train_y_img_paths)
 
-        
+
         while True:
             img_batch = []
             x_img_path_batch = train_x_img_paths[:batch_size]

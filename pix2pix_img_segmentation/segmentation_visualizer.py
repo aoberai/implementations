@@ -3,7 +3,7 @@ import os
 import numpy as np
 import tensorflow as tf
 
-generator_model = tf.keras.models.load_model("models/v2/GeneratorEpoch9.h5")
+generator_model = tf.keras.models.load_model("models/v3/GeneratorEpoch25.h5")
 image_shape = (256, 256, 3)
 
 

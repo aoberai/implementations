@@ -54,7 +54,7 @@ Trained on comma10k dataset
 
 
 import tensorflow as tf
-from tensorflow.keras import Input, Model, layers
+from tensorflow.keras import Input, Model, layers, activations
 import tensorflow.keras.backend as K
 import numpy as np
 import os
@@ -75,7 +75,7 @@ def downsample(inputs, filter_count, conv_kernel_size=(3,3,), dropout_rate=0, do
     return outputs
 
 # TODO: no batch norm on output data in final layers?
-def upsample(decode_inputs, skip_inputs, filter_count, conv_kernel_size=(3, 3,), dropout_rate=0, upsample_num=0, apply_batchnorm=False):
+def upsample(decode_inputs, skip_inputs, filter_count, conv_kernel_size=(3, 3,), dropout_rate=0, upsample_num=0, apply_batchnorm=False, activation_func=layers.ReLU()):
     inputs = tf.keras.layers.Concatenate()([decode_inputs, skip_inputs])
     x = layers.Conv2DTranspose(filter_count, conv_kernel_size, strides=2 if upsample_num > 0 else 1, padding='same')(inputs)
     for _ in range(upsample_num - 1):
@@ -84,7 +84,7 @@ def upsample(decode_inputs, skip_inputs, filter_count, conv_kernel_size=(3, 3,),
         x = layers.BatchNormalization()(x)
     if dropout_rate != 0:
         x = layers.Dropout(dropout_rate)(x)
-    outputs = layers.ReLU()(x)
+    outputs = activation_func(x)
     print(outputs)
     print("\n\n\n")
     return outputs
@@ -98,7 +98,7 @@ def generator(image_shape):
     down_stacks_conv = [256, 128, 32, 3]
     up_stacks_scale = [("DownSample",1), ("DownSample",1), ("DownSample",2), ("DownSample",1)]
     down_stacks_scale = [("UpSample", 1), ("UpSample",2), ("UpSample",1), ("UpSample",1)]
-    down_stacks_batchnorm = [False, False, False, False]
+    down_stacks_batchnorm = [True, True, False, False]
     up_stacks_dropout = [0, 0, 0, 0]
     # down_stacks_dropout = [0.2, 0.2, 0.2]
     down_stacks_dropout = [0, 0, 0, 0]
@@ -115,7 +115,7 @@ def generator(image_shape):
         skips.append(s)
     for i in range(len(down_stacks_conv)):
         # upsample; decoder
-        s = upsample(s, skips[-1], down_stacks_conv[i], (5, 5), down_stacks_dropout[i], down_stacks_scale[i][1] if down_stacks_scale[i][0]=="UpSample" else 0, apply_batchnorm=down_stacks_batchnorm[i])
+        s = upsample(s, skips[-1], down_stacks_conv[i], (5, 5), down_stacks_dropout[i], down_stacks_scale[i][1] if down_stacks_scale[i][0]=="UpSample" else 0, apply_batchnorm=down_stacks_batchnorm[i], activation_func=layers.Activation("tanh") if (i == len(up_stacks_conv) - 1) else layers.ReLU())
         del skips[-1]
 
     print("\n\n\n\n")
@@ -134,6 +134,7 @@ def discriminator(image_shape):
     input_img = layers.Input(image_shape, name='input img')
     target_img = layers.Input(image_shape, name='target img')
     x = layers.concatenate([input_img, target_img])
+    x = downsample(x, 512, downsample_num=1)
     x = downsample(x, 256, downsample_num=1)
     x = downsample(x, 128, downsample_num=1)
     x = downsample(x, 64, downsample_num=1)
@@ -211,11 +212,11 @@ def fit(epochs=10, batch_size=64):
         steps = 0
         print("\n\nEpoch:", epoch, "\n\n")
         train_x_path = "/home/aoberai/programming/ml-datasets/comma10k/imgs/"
-        train_x_img_paths = [os.path.join(train_x_path, img_name) for img_name in os.listdir(train_x_path)]
+        train_x_img_paths = [os.path.join(train_x_path, img_name) for img_name in os.listdir(train_x_path) if "9.png" not in img_name]
         trainset_size = len(train_x_img_paths)
 
         train_y_path = "/home/aoberai/programming/ml-datasets/comma10k/masks/"
-        train_y_img_paths = [os.path.join(train_y_path, img_name) for img_name in os.listdir(train_y_path)]
+        train_y_img_paths = [os.path.join(train_y_path, img_name) for img_name in os.listdir(train_y_path) if "9.png" not in img_name]
 
         # shuffle
         seed = np.random.randint(100)
@@ -237,10 +238,10 @@ def fit(epochs=10, batch_size=64):
                 rd_seed = np.random.randint(100)
 
                 # TODO put in preprocessing block
-                x_img = cv2.imread(x_img_path)
+                x_img = cv2.imread(x_img_path) / 127.5 - 1
                 x_scaling_factor = image_shape[0]/np.shape(x_img)[0]
                 x_img = cv2.resize(x_img, None, fx=x_scaling_factor, fy=x_scaling_factor)
-                y_img = cv2.imread(y_img_path)
+                y_img = cv2.imread(y_img_path) / 127.5 - 1
                 y_scaling_factor = image_shape[0]/np.shape(y_img)[0]
                 y_img = cv2.resize(y_img, None, fx=y_scaling_factor, fy=y_scaling_factor)
 
@@ -257,24 +258,24 @@ def fit(epochs=10, batch_size=64):
                 time.sleep(5)
                 '''
 
-            img_batch = np.swapaxes(np.array(img_batch, dtype="float32"), 0, 1) # TODO: why float 32
+            img_batch = np.swapaxes(np.array(img_batch, dtype="float32"), 0, 1)
             train_step(img_batch[0], img_batch[1])
             steps+=1
             print("Steps:%d -- Progress:%0.4f" % (steps, steps / (trainset_size // batch_size)), end="\r")
             # if epoch >= 2:
             try:
                 # Visualize Gan Status
-                x_img = cv2.imread(train_x_img_paths[-1])
+                x_img = cv2.imread(train_x_img_paths[-1]) / 127.5 - 1
                 y_img = cv2.imread(train_y_img_paths[-1])
 
                 x_scaling_factor = image_shape[0]/np.shape(x_img)[0]
                 x_img = tf.image.random_crop(value=cv2.resize(x_img, None, fx=x_scaling_factor, fy=x_scaling_factor), size=image_shape).numpy()
-                gen_img = np.round(generator_model.predict(np.expand_dims(x_img, 0))[0]).astype(np.uint8) # TODO: np round is because if channel vals are floats, then it displays rgb from 0 - 1 where we want image to be generated from 0 - 255
+                gen_img = generator_model.predict(np.expand_dims(x_img, 0))[0] # TODO: np round is because if channel vals are floats, then it displays rgb from 0 - 1 where we want image to be generated from 0 - 255
                 # gen_img = generator_model.predict(np.expand_dims(x_img, 0))[0] 
                 # stacked_img = np.concatenate([x_img, gen_img, cv2.resize(y_img, image_shape[:2])], axis=1)
                 # cv2.imshow("Visualizer", stacked_img)
-                cv2.imshow("Original", x_img)
-                cv2.imshow("Generated", gen_img)
+                cv2.imshow("Original", np.round(127.5 * (x_img + 1)).astype(np.uint8))
+                cv2.imshow("Generated", np.round(127.5 * (gen_img + 1)).astype(np.uint8))
                 cv2.imshow("Target", cv2.resize(y_img, image_shape[:2]))
                 if steps % 100 == 0:
                     print(gen_img)

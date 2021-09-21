@@ -271,12 +271,11 @@ def fit(epochs=10, batch_size=64):
                 x_scaling_factor = image_shape[0]/np.shape(x_img)[0]
                 x_img = tf.image.random_crop(value=cv2.resize(x_img, None, fx=x_scaling_factor, fy=x_scaling_factor), size=image_shape).numpy()
                 gen_img = generator_model.predict(np.expand_dims(x_img, 0))[0] # TODO: np round is because if channel vals are floats, then it displays rgb from 0 - 1 where we want image to be generated from 0 - 255
-                # gen_img = generator_model.predict(np.expand_dims(x_img, 0))[0] 
-                # stacked_img = np.concatenate([x_img, gen_img, cv2.resize(y_img, image_shape[:2])], axis=1)
-                # cv2.imshow("Visualizer", stacked_img)
-                cv2.imshow("Original", np.round(127.5 * (x_img + 1)).astype(np.uint8))
-                cv2.imshow("Generated", np.round(127.5 * (gen_img + 1)).astype(np.uint8))
-                cv2.imshow("Target", cv2.resize(y_img, image_shape[:2]))
+                stacked_img = np.hstack([np.round(127.5 * (x_img + 1)).astype(np.uint8), np.round(127.5 * (gen_img + 1)).astype(np.uint8), cv2.resize(y_img, image_shape[:2])])
+                cv2.imshow("Training", stacked_img)
+                # cv2.imshow("Original", np.round(127.5 * (x_img + 1)).astype(np.uint8))
+                # cv2.imshow("Generated", np.round(127.5 * (gen_img + 1)).astype(np.uint8))
+                # cv2.imshow("Target", cv2.resize(y_img, image_shape[:2]))
                 if steps % 100 == 0:
                     print(gen_img)
                 cv2.waitKey(1)

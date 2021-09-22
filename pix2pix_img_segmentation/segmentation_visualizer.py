@@ -2,21 +2,61 @@ import cv2
 import pygame
 import numpy as np
 import tensorflow as tf
+import argparse
 
-generator_model = tf.keras.models.load_model("models/v4/GeneratorEpoch53.h5") # Model 53 looking better than Model 63
+# Create the parser
+cli_parser = argparse.ArgumentParser(description='List the content of a folder')
+
+# Add the arguments
+cli_parser.add_argument('--video',
+                        metavar='video',
+                        type=str,
+                        default="./DrivingFootage.mp4",
+                        help='Path to video to run on')
+
+cli_parser.add_argument('--model',
+                        metavar='model',
+                        type=str,
+                        default="./models/v4/GeneratorEpoch53.h5",
+                        help='Model to run inference on')
+
+cli_parser.add_argument('--pos',
+                        metavar='pos',
+                        type=float,
+                        default=0.0,
+                        help='Start position for video (given as proportion)')
+
+cli_parser.add_argument('--size_multiplier',
+                        metavar='size_multiplier',
+                        type=float,
+                        default=3.0,
+                        help='Display Size: (size_multiplier * 256, size_multiplier * 256)')
+
+args = cli_parser.parse_args()
+assert args.pos <=1 and args.pos >= 0
+
+generator_model = tf.keras.models.load_model(args.model) # Model 53 looking better than Model 63
 orig_img_shape = (256, 256, 3)
 
-# Does this ':=' upset you :)
-display_res = tuple(val * (size_multiplier:=3) for val in orig_img_shape[:2])
+display_res = tuple(int(val * args.size_multiplier) for val in orig_img_shape[:2])
 
 # Visualize on video
-cap = cv2.VideoCapture("DrivingFootage.mp4")
-# cap = cv2.VideoCapture("/home/aoberai/Downloads/test.mp4")
+cap = cv2.VideoCapture(args.video)
 # Sets vid starting position
-cap.set(cv2.CAP_PROP_POS_FRAMES, (position_video:=0.7*cap.get(cv2.CAP_PROP_FRAME_COUNT)))
+cap.set(cv2.CAP_PROP_POS_FRAMES, (args.pos*cap.get(cv2.CAP_PROP_FRAME_COUNT)))
+
+# TODO: fix bottom bar
+bottom_bar_size = 20
+full_display_res = display_res
+# full_display_res = list(display_res)
+# full_display_res[1] += bottom_bar_size
+# full_display_res = tuple(full_display_res)
+
 # Init Pygame
-wn = pygame.display.set_mode(display_res)
+wn = pygame.display.set_mode(full_display_res)
 clock = pygame.time.Clock()
+
+result = cv2.VideoWriter('output.avi', cv2.VideoWriter_fourcc('M', 'J', 'P', 'G'), cap.get(cv2.CAP_PROP_FPS), full_display_res)
 
 def normalize(img):
     return img / 127.5 - 1
@@ -40,8 +80,14 @@ while True:
     img = normalize(cv2.resize(img, orig_img_shape[:2]))
     gen_img = denormalize((generator_model.predict(np.expand_dims(img, 0))[0])).astype(np.uint8)
     img = denormalize(img).astype(np.uint8)
-    overlay_img = cv2.resize(cv2.addWeighted(img, 1 - gen_img_transparency, gen_img, gen_img_transparency, 0), tuple(val * size_multiplier for val in orig_img_shape[:2]))
-    wn.blit(pygame.image.frombuffer(overlay_img.tobytes(), display_res, "BGR"), (0, 0))
+    overlay_img = cv2.resize(cv2.addWeighted(img, 1 - gen_img_transparency, gen_img, gen_img_transparency, 0), display_res)
+    overlay_img = cv2.putText(overlay_img,'Purple: Your Car, Red: Lane Lines, Dark Brown: Road, Light Brown: Undrivable, Green: Other Vehicles', (bottom_bar_size, full_display_res[0] - bottom_bar_size), cv2.FONT_HERSHEY_DUPLEX, 0.7 * (display_res[0] * display_res[1])/(1000*1000), (255,255,255), 1)
+    # padding = np.full((full_display_res[1], bottom_bar_size, 3), [255, 255, 255], dtype=np.uint8)
+    # overlay_img = np.hstack((overlay_img, padding))
+    # print(np.shape(overlay_img))
+    # print(full_display_res)
+    wn.blit(pygame.image.frombuffer(overlay_img.tobytes(), full_display_res, "BGR"), (0, 0))
+    result.write(overlay_img)
     pygame.display.update()
     events = pygame.event.get()
     for event in events:
@@ -61,6 +107,9 @@ while True:
                 counter = 0
                 # print("++ Gen Img Transparency")
     # assert np.max(gen_img) <= 255 and np.min(gen_img) >= 0
+
+cap.release()
+result.release()
 
 '''
 # Visualize with test images

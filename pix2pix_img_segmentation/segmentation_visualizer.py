@@ -11,8 +11,9 @@ display_res = tuple(val * (size_multiplier:=3) for val in orig_img_shape[:2])
 
 # Visualize on video
 cap = cv2.VideoCapture("DrivingFootage.mp4")
+# cap = cv2.VideoCapture("/home/aoberai/Downloads/test.mp4")
 # Sets vid starting position
-cap.set(cv2.CAP_PROP_POS_FRAMES, (position_video:=0.3*cap.get(cv2.CAP_PROP_FRAME_COUNT)))
+cap.set(cv2.CAP_PROP_POS_FRAMES, (position_video:=0.7*cap.get(cv2.CAP_PROP_FRAME_COUNT)))
 # Init Pygame
 wn = pygame.display.set_mode(display_res)
 clock = pygame.time.Clock()
@@ -26,10 +27,14 @@ def denormalize(img):
 gen_img_transparency = 0.5
 delta_overlay_interval = 2
 counter = delta_overlay_interval
+current_frame_count = 0
+skip_frame_count = 100
 print("Press Up or Down arrows to change transparancy of segmentation mask")
 while True:
     counter += 1
+    current_frame_count += 1
     run, img = cap.read()
+    img = cv2.normalize(img, img, 0, 255, cv2.NORM_MINMAX)
     if not run:
         break
     img = normalize(cv2.resize(img, orig_img_shape[:2]))
@@ -40,13 +45,19 @@ while True:
     pygame.display.update()
     events = pygame.event.get()
     for event in events:
-        if event.type == pygame.KEYDOWN:
-            if (event.key == pygame.K_LEFT or event.key == pygame.K_DOWN) and counter >= delta_overlay_interval:
+        if event.type == pygame.KEYDOWN and counter >= delta_overlay_interval:
+            # TODO: make arrow key skip x sec forward or backward
+            if (event.key == pygame.K_DOWN):
                 gen_img_transparency = max(gen_img_transparency - 0.1, 0)
                 counter = 0
-                # print("-- Gen Img Transparency")
-            elif (event.key == pygame.K_UP or event.key == pygame.K_RIGHT) and counter >= delta_overlay_interval:
+            elif (event.key == pygame.K_UP):
                 gen_img_transparency = min(gen_img_transparency + 0.1, 1)
+                counter = 0
+            if event.key == pygame.K_LEFT:
+                cap.set(cv2.CAP_PROP_POS_FRAMES, current_frame_count:=current_frame_count-skip_frame_count)
+                counter = 0
+            elif event.key == pygame.K_RIGHT:
+                cap.set(cv2.CAP_PROP_POS_FRAMES, current_frame_count:=current_frame_count+skip_frame_count)
                 counter = 0
                 # print("++ Gen Img Transparency")
     # assert np.max(gen_img) <= 255 and np.min(gen_img) >= 0

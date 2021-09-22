@@ -3,11 +3,11 @@ import pygame
 import numpy as np
 import tensorflow as tf
 
-generator_model = tf.keras.models.load_model("GeneratorEpoch63.h5")
+generator_model = tf.keras.models.load_model("models/v4/GeneratorEpoch53.h5") # Model 53 looking better than Model 63
 orig_img_shape = (256, 256, 3)
 
 # Does this ':=' upset you :)
-display_res = tuple(val * (size_multiplier:=2) for val in orig_img_shape[:2])
+display_res = tuple(val * (size_multiplier:=3) for val in orig_img_shape[:2])
 
 # Visualize on video
 cap = cv2.VideoCapture("DrivingFootage.mp4")
@@ -26,6 +26,7 @@ def denormalize(img):
 gen_img_transparency = 0.5
 delta_overlay_interval = 2
 counter = delta_overlay_interval
+print("Press Up or Down arrows to change transparancy of segmentation mask")
 while True:
     counter += 1
     run, img = cap.read()

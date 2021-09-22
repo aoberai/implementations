@@ -1,25 +1,54 @@
 import cv2
-import os
+import pygame
 import numpy as np
 import tensorflow as tf
 
-generator_model = tf.keras.models.load_model("models/v3/GeneratorEpoch25.h5")
-image_shape = (256, 256, 3)
+generator_model = tf.keras.models.load_model("GeneratorEpoch63.h5")
+orig_img_shape = (256, 256, 3)
 
+# Does this ':=' upset you :)
+display_res = tuple(val * (size_multiplier:=2) for val in orig_img_shape[:2])
 
 # Visualize on video
-
 cap = cv2.VideoCapture("DrivingFootage.mp4")
-while True:
-    ret, img = cap.read()
-    if not ret:
-        break
-    img = cv2.resize(img, image_shape[:2])
-    gen_img = (generator_model.predict(np.expand_dims(img, 0))[0]).astype(np.uint8)
-    assert np.max(gen_img) <= 255 and np.min(gen_img) >= 0
-    cv2.imshow("", cv2.hconcat((img, gen_img)))
-    cv2.waitKey(1)
+# Sets vid starting position
+cap.set(cv2.CAP_PROP_POS_FRAMES, (position_video:=0.3*cap.get(cv2.CAP_PROP_FRAME_COUNT)))
+# Init Pygame
+wn = pygame.display.set_mode(display_res)
+clock = pygame.time.Clock()
 
+def normalize(img):
+    return img / 127.5 - 1
+
+def denormalize(img):
+    return (img + 1) * 127.5
+
+gen_img_transparency = 0.5
+delta_overlay_interval = 2
+counter = delta_overlay_interval
+while True:
+    counter += 1
+    run, img = cap.read()
+    if not run:
+        break
+    img = normalize(cv2.resize(img, orig_img_shape[:2]))
+    gen_img = denormalize((generator_model.predict(np.expand_dims(img, 0))[0])).astype(np.uint8)
+    img = denormalize(img).astype(np.uint8)
+    overlay_img = cv2.resize(cv2.addWeighted(img, 1 - gen_img_transparency, gen_img, gen_img_transparency, 0), tuple(val * size_multiplier for val in orig_img_shape[:2]))
+    wn.blit(pygame.image.frombuffer(overlay_img.tobytes(), display_res, "BGR"), (0, 0))
+    pygame.display.update()
+    events = pygame.event.get()
+    for event in events:
+        if event.type == pygame.KEYDOWN:
+            if (event.key == pygame.K_LEFT or event.key == pygame.K_DOWN) and counter >= delta_overlay_interval:
+                gen_img_transparency = max(gen_img_transparency - 0.1, 0)
+                counter = 0
+                # print("-- Gen Img Transparency")
+            elif (event.key == pygame.K_UP or event.key == pygame.K_RIGHT) and counter >= delta_overlay_interval:
+                gen_img_transparency = min(gen_img_transparency + 0.1, 1)
+                counter = 0
+                # print("++ Gen Img Transparency")
+    # assert np.max(gen_img) <= 255 and np.min(gen_img) >= 0
 
 '''
 # Visualize with test images

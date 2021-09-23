@@ -9,4 +9,5 @@ __pycache__
 *.npz
 logs/
 *.mp4
+*.avi
 README.md

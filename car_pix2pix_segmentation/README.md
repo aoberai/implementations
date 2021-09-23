@@ -1,6 +1,7 @@
 # Car State: Pix 2 Pix Image Segmentation 
 
 [![Watch the video](assets/DemoThumbnail.png)](assets/demo.avi)
+<sub> Bigger model with longer training could make this a lot better; this approach has a ton of potentional. Unfortunately, I only have access to a small laptop which prevents my ability to train for long periods of time. </sub>
 <br>
 
 Tried to implement this paper from scratch with minimal outside sources to see if I could. Applied GAN pix2pix idea to "traditional" semantic image segmentation which was not done in the paper. This generative adversarial architecture makes things easier since one does not have to hand code a loss function for the generator (discriminator model much more sophisticated compared to anything any individual could probably write). <br>

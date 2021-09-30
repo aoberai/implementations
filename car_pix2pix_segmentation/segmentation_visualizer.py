@@ -18,7 +18,7 @@ cli_parser.add_argument('--video',
 cli_parser.add_argument('--model',
                         metavar='model',
                         type=str,
-                        default="./models/v4/GeneratorEpoch53.h5",
+                        default="./models/v4/GeneratorEpoch63.h5",
                         help='Model to run inference on')
 
 cli_parser.add_argument('--pos',

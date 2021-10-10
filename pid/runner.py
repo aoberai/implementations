@@ -2,10 +2,10 @@ from simulation import Simulation
 from controller import PIDController
 import time
 
-# Implement y component forces and interactions with static obj
-simulation = Simulation(mass=1, surface_width=0.5, surface_height=0.01, x_init=(0.7, 0), v_init=(0.03, 0), s_coef_fric=0.03, k_coef_fric=0.015, block_display_dims=(0.01, 0.01), wants_render=True, screen_dims=(0.5, 0.2))
-p_controller = PIDController(Kp=3.5, Kd=0, Ki=0.0)
-reference_x = (0.1, 0)
+simulation = Simulation(mass=1, surface_width=0.5, surface_height=0.01, x_init=(0, 0), v_init=(0.03, 0), s_coef_fric=0.03, k_coef_fric=0.015, block_display_dims=(0.01, 0.01), wants_render=True, screen_dims=(0.5, 0.2))
+p_controller = PIDController(Kp=70, Kd=10, Ki=40, IZone=0.15)
+
+reference_x = [0.1, 0] # Press left and right arrow keys to move reference
 
 applied_f = 0
 error = 0

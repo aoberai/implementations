@@ -1,6 +1,7 @@
 import time
 import pygame
 import constants as ct
+import os
 
 class _Block:
     g = 9.8
@@ -17,7 +18,8 @@ class _Block:
 
     def step(self, current_time, applied_f):
         normal_f = self.g*self.mass
-        fric_f = ((normal_f * self.k_coef_fric) if abs(self.v_h) > 0.01 else min(abs(applied_f), self.s_coef_fric * normal_f))
+        kinetic2static_v = 0.01
+        fric_f = ((normal_f * self.k_coef_fric) if abs(self.v_h) > kinetic2static_v else min(abs(applied_f), self.s_coef_fric * normal_f))
         fric_f *= -1 if self.v_h > 0 else 1
         net_f = (applied_f + fric_f)
         a = net_f/self.mass
@@ -45,7 +47,9 @@ class Simulation:
         self.screen_dims = screen_dims
         self.reference_rect_dims = (0.002, 0.01)
         if wants_render:
+            os.environ['SDL_VIDEO_WINDOW_POS'] = "0,0"
             pygame.init()
+            pygame.key.set_repeat(10, 500)
             self.pyg_surface = pygame.display.set_mode((int(screen_dims[0]*ct.PIXELS_PER_METER), int(screen_dims[1]*ct.PIXELS_PER_METER)))
     def step(self, current_time, applied_f):
         self._surface.step()
@@ -53,12 +57,18 @@ class Simulation:
         block_state = self._block.step(current_time, applied_f)
         return block_state
     def render(self, block_state, reference_x):
+        events = pygame.event.get()
+        for event in events:
+            if event.type == pygame.KEYDOWN:
+                if event.key == pygame.K_LEFT:
+                    reference_x[0] -= 0.005
+                if event.key == pygame.K_RIGHT:
+                    reference_x[0] += 0.005
         self.pyg_surface.fill((0, 0, 0))
         # TODO: put pygame rect in class
         surf_rect = pygame.Rect(0, int(ct.PIXELS_PER_METER*(self.screen_dims[1]-self._surface.height)), int(self._surface.width*self.screen_dims[0]*ct.PIXELS_PER_METER**2), int(self._surface.height*self.screen_dims[1]*ct.PIXELS_PER_METER**2))
         block_rect = pygame.Rect(int(ct.PIXELS_PER_METER*block_state[0]), int(ct.PIXELS_PER_METER*(self.screen_dims[1] - self._surface.height - self._block.display_dims[1])), int(ct.PIXELS_PER_METER*self._block.display_dims[0]), int(ct.PIXELS_PER_METER*self._block.display_dims[1]))
-        reference_rect = pygame.Rect(int(ct.PIXELS_PER_METER*reference_x[0]), int(ct.PIXELS_PER_METER*(self.screen_dims[1] - self._surface.height - self.reference_rect_dims[1])), int(ct.PIXELS_PER_METER*self.reference_rect_dims[0]), int(ct.PIXELS_PER_METER*self.reference_rect_dims[1]))
-        # print(int(ct.PIXELS_PER_METER*reference_x[0]), int(ct.PIXELS_PER_METER*(self.screen_dims[1] - self._surface.height + self.reference_rect_dims[1])), int(ct.PIXELS_PER_METER*self.reference_rect_dims[0]), int(ct.PIXELS_PER_METER*self.reference_rect_dims[1]))
+        reference_rect = pygame.Rect(int(ct.PIXELS_PER_METER*(reference_x[0]+self._block.display_dims[0]/2 - self.reference_rect_dims[0]/2)), int(ct.PIXELS_PER_METER*(self.screen_dims[1] - self._surface.height - self.reference_rect_dims[1])), int(ct.PIXELS_PER_METER*self.reference_rect_dims[0]), int(ct.PIXELS_PER_METER*self.reference_rect_dims[1]))
         pygame.draw.rect(self.pyg_surface, ct.GREY, surf_rect)
         pygame.draw.rect(self.pyg_surface, ct.WHITE, block_rect)
         pygame.draw.rect(self.pyg_surface, ct.RED, reference_rect)

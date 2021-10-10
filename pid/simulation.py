@@ -14,9 +14,11 @@ class _Block:
         self.v_h = self.v_init[0]
         self.last_time = time.time()
         self.display_dims = display_dims
+
     def step(self, current_time, applied_f):
         normal_f = self.g*self.mass
-        fric_f, self.v_h = (-(normal_f * self.k_coef_fric), self.v_h) if abs(self.v_h) > 0.02 else (min(abs(applied_f), abs(self.s_coef_fric * normal_f)), 0)
+        fric_f = ((normal_f * self.k_coef_fric) if abs(self.v_h) > 0.01 else min(abs(applied_f), self.s_coef_fric * normal_f))
+        fric_f *= -1 if self.v_h > 0 else 1
         net_f = (applied_f + fric_f)
         a = net_f/self.mass
         d_time = current_time - self.last_time

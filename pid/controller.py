@@ -8,8 +8,8 @@ class PIDController:
         self.last_time = time.time()
         self.error_clamp = error_clamp
         self.output_clamp = output_clamp
-    def update_gains(self, Kp, Ki, Kd):
-        self.Kp, self.Ki, self.Kd = Kp, Ki, Kd
+    def update_gains(self, Kp, Ki, Kd, IZone):
+        self.Kp, self.Ki, self.Kd, self.IZone = Kp, Ki, Kd, IZone
     def feedback(self, error):
         if self.error_clamp != None:
             error = max(min(self.error_clamp[1], error), self.error_clamp[0])

@@ -41,7 +41,7 @@ lrcn_model.add(TimeDistributed(Flatten()))
 
 # LSTM
 
-lrcn_model.add(SimpleRNN(128, activation='tanh'))
+lrcn_model.add(LSTM(128, activation='tanh'))
 lrcn_model.add(Dense(64, activation='relu'))
 lrcn_model.add(Dense(1, activation='relu'))
 

@@ -21,11 +21,9 @@ validation_ds = ds.take(validation_set_size)
 train_ds = ds.skip(validation_set_size)
 
 # simple cnn lstm architecture
-
 lrcn_model = tf.keras.Sequential()
-
 # CNN
-lrcn_model.add(TimeDistributed(Conv2D(32, (3, 3)), input_shape=(constants.frame_window_size,) + constants.image_size))
+lrcn_model.add(TimeDistributed(Conv2D(32, (3, 3)), input_shape=(constants.frame_window_size,) + np.shape(frames[0])))
 lrcn_model.add(TimeDistributed(MaxPooling2D((2, 2))))
 lrcn_model.add(TimeDistributed(LeakyReLU()))
 
@@ -40,7 +38,6 @@ lrcn_model.add(TimeDistributed(LeakyReLU()))
 lrcn_model.add(TimeDistributed(Flatten()))
 
 # LSTM
-
 lrcn_model.add(LSTM(128, activation='tanh'))
 lrcn_model.add(Dense(64, activation='relu'))
 lrcn_model.add(Dense(1, activation='relu'))
@@ -58,4 +55,3 @@ earlystopping_callback = tf.keras.callbacks.EarlyStopping(monitor='val_loss', pa
 lrcn_model.fit(x=train_ds, epochs=30, validation_data=validation_ds, callbacks=[earlystopping_callback])
 
 lrcn_model.save(constants.model_path)
-

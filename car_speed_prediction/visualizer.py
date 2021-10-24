@@ -2,6 +2,7 @@ import numpy as np
 import tensorflow as tf
 import constants
 import cv2
+from dense_opflow import DenseOpFlow
 
 vid_type = "test"
 if vid_type == "train":
@@ -15,6 +16,8 @@ if vid_type == "train":
 elif vid_type == "test":
     vid = cv2.VideoCapture("./data/test.mp4")
 
+op_flow = DenseOpFlow(cv2.resize(vid.read()[1], constants.image_size[0:2]))
+
 speed_predictor = tf.keras.models.load_model(constants.model_path)
 
 model_frames = []
@@ -24,8 +27,10 @@ while True:
     if not ret:
         break
     model_frame = cv2.resize(frame, (constants.image_size[0], constants.image_size[1],))
-    model_frames.append(model_frame)
-    
+
+    opflow_frame = op_flow.get(model_frame)
+    merged = np.concatenate((model_frame / 255, opflow_frame / 255, ), 2)
+    model_frames.append(merged)
     if vid_type == "train":
         real_speed = train_speeds.readline()
     else:

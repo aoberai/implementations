@@ -4,11 +4,13 @@ import constants
 import cv2
 import numpy as np
 
+
 class DenseOpFlow:
     def __init__(self, init_frame):
         self.prvs = cv2.cvtColor(init_frame, cv2.COLOR_BGR2GRAY)
         self.hsv = np.zeros_like(init_frame)
         self.hsv[..., 1] = 255
+
     def get(self, image):
         new_frame = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
         flow = cv2.calcOpticalFlowFarneback(
@@ -19,4 +21,3 @@ class DenseOpFlow:
         rgb = cv2.cvtColor(self.hsv, cv2.COLOR_HSV2BGR)
         self.prvs = new_frame
         return rgb
-

@@ -17,8 +17,8 @@ train_Y = []
 
 test_X = []
 
-trainset_size = 20400
-testset_size = 10798
+trainset_size = train_vid.get(cv2.CAP_PROP_FRAME_COUNT)
+testset_size = test_vid.get(cv2.CAP_PROP_FRAME_COUNT)
 
 def preprocess(original_frame):
     original_frame = cv2.resize(original_frame, constants.image_size[0:2])

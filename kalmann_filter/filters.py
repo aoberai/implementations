@@ -53,10 +53,10 @@ class GHFilter:
         return self.x_pred
     def update(self, z):
         resid = z - self.x_pred
+        # updates x estimation
+        self.x = self.x_pred + self.g*resid
         # updates change in model for next timestep prediction 
         self.dx += self.h*resid/self.dt
-        # updates x estimation
-        self.x += self.g*resid
         return self.x
 
 class Utils:
@@ -66,15 +66,15 @@ class Utils:
         series = []
         for y in range(len(y_set.values())):
             series_val = list(y_set.values())[y]
-            series.append(plt.scatter(np.array([i*dt for i in range(len(series_val))]), np.array(series_val)))
+            series.append(plt.scatter(np.array([i*dt for i in range(len(series_val))]), np.array(series_val), 5))
         plt.legend(series, y_set.keys(), fontsize=8, loc='upper left')
         plt.show()
 
 if __name__ == "__main__":
-    x0, dx, g, h, dt = 0, 9, 1, 1, 1
+    x0_obs, x0_guess, dx, g, h, dt = 5, 100, 2, 0.2, 0.02, 1
     utils = Utils()
-    ghfilter = GHFilter(x0, dx, g, h, dt)
-    observed_data = utils.get_data(n=10, x0=x0, dx=dx, dt=1, mu=0, sigma=2)
+    ghfilter = GHFilter(x0_guess, dx, g, h, dt)
+    observed_data = utils.get_data(n=100, x0=x0_obs, dx=dx, dt=1, mu=0, sigma=5)
     xs_estimated = []
     predicted = []
     for z in observed_data:

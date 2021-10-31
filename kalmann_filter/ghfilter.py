@@ -20,11 +20,12 @@ Merge prediction and sensor data
     2. Compute residual between estimated state and measurement
     3. New estimate is somewhere on the residual line
 
-https://hub-binder.mybinder.ovh/user/rlabbe-kalman-a-lters-in-python-7284y12e/lab/tree/01-g-h-filter.ipynb
 '''
 
 import numpy as np
 import matplotlib.pyplot as plt
+import utils as util
+
 
 class GHFilter:
     """
@@ -41,34 +42,27 @@ class GHFilter:
 
     'p' denotes plus; 'm' denotes minus
     """
+
     def __init__(self, x0, v, g, h, dt):
         self.x0 = self.x = x0
         self.v = v
         self.g = g
         self.h = h
         self.dt = dt
+
     def predict(self):
         self.x_pred = self.v * self.dt + self.x
         # TODO: predict both future pos and future gain rate
         return self.x_pred
+
     def update(self, z):
         resid = z - self.x_pred
         # updates x estimation
-        self.x = self.x_pred + self.g*resid
-        # updates change in model for next timestep prediction 
-        self.v += self.h*resid/self.dt
+        self.x = self.x_pred + self.g * resid
+        # updates change in model for next timestep prediction
+        self.v += self.h * resid / self.dt
         return self.x
 
-class Utils:
-    def get_data(self, n, x0, v, dt, mu, sigma, a=0):
-        return [x0 + 0.5 * a * (i * dt) ** 2 + v*dt*i + sigma * np.random.randn() + mu for i in range(n)]
-    def plot(self, y_set, dt):
-        series = []
-        for y in range(len(y_set.values())):
-            series_val = list(y_set.values())[y]
-            series.append(plt.scatter(np.array([i*dt for i in range(len(series_val))]), np.array(series_val), 5))
-        plt.legend(series, y_set.keys(), fontsize=8, loc='upper left')
-        plt.show()
 
 if __name__ == "__main__":
     '''
@@ -83,20 +77,23 @@ if __name__ == "__main__":
      If signal changing slowly, want larger g (relies on prediction more than measurement)
     '''
     x0_obs, x0_guess, v, g, h, dt = 5, 100, 2, 0.2, 0.02, 1
-    utils = Utils()
+    utils = util.Utils()
     ghfilter = GHFilter(x0_guess, v, g, h, dt)
     # Acceleration show that gh filter can only model constant speed data
     # Need third term k to weight acceleration estimate
-    observed_data = utils.get_data(n=10, x0=x0_obs, v=v, dt=1, mu=0, sigma=5, a=10)
+    observed_data = utils.get_data(
+        n=10, x0=x0_obs, v=v, dt=1, mu=0, sigma=5, a=10)
     xs_estimated = []
     predicted = []
     for z in observed_data:
         predicted.append(prediction := ghfilter.predict())
         xs_estimated.append(x_estimated := ghfilter.update(z))
-    print("Predicted: ", predicted, "\nObserved: ", observed_data, "\nEstimated: ", xs_estimated)
-    utils.plot({"predicted": predicted, "observed": observed_data, "estimated": xs_estimated}, dt)
-
-
-
-
-
+    print(
+        "Predicted: ",
+        predicted,
+        "\nObserved: ",
+        observed_data,
+        "\nEstimated: ",
+        xs_estimated)
+    utils.plot({"predicted": predicted, "observed": observed_data,
+               "estimated": xs_estimated}, dt)

@@ -26,18 +26,23 @@ in the measurement
 import numpy as np
 import utils as util
 from utils import GaussianDistribution
+import math
 
 class KalmanFilter1d:
+    # TODO: update v and a or not needed?
     def __init__(self, x_0: GaussianDistribution, v_0: GaussianDistribution, a_0: GaussianDistribution):
         self.x = x_0
         self.v = v_0
         self.a = a_0
+        self.likelihood = x_0
+        self.prior = x_0
 
     '''
     Constant accel model; can be replaced with other state space model
     '''
     def predict(self, dt):
-        return GaussianDistribution.add_list([self.x, self.v.scale(dt), self.a.scale(0.5*(dt**2))])
+        self.likelihood = GaussianDistribution.add_list([self.x, self.v.scale(dt), self.a.scale(0.5*(dt**2))])
+        return self.likelihood
 
     '''
     Finding P(A | B) given P(B | A) aka likelihood and P(A) aka prior
@@ -48,45 +53,57 @@ class KalmanFilter1d:
     return 'posterior' aka estimated position
     '''
     def update(self, likelihood, prior):
+        self.prior = prior
         posterior = self.x = GaussianDistribution.multiply(likelihood, prior)
         return posterior
+    def get_k_gain(self):
+        return (self.likelihood.sigma**2)/(self.likelihood.sigma**2 + self.prior.sigma**2)
 
 if __name__ == '__main__':
     '''
     One Cycle
     '''
 
-    prior = GaussianDistribution(10, 0.2) # x0
-    kf_filter = KalmanFilter1d(prior, GaussianDistribution(15, 0.7), GaussianDistribution(0, 0))
-    likelihood = kf_filter.predict(dt=1)
-    posterior = kf_filter.update(likelihood, prior)
-    print("Measured State", prior.to_string(), "Predicted Position", likelihood.to_string(), "Estimated State", posterior.to_string())
-
+    # prior = GaussianDistribution(10, 0.2) # x0
+    # kf_filter = KalmanFilter1d(prior, GaussianDistribution(15, 0.7), GaussianDistribution(0, 0))
+    # likelihood = kf_filter.predict(dt=1)
+    # posterior = kf_filter.update(likelihood, prior)
+    # print("Measured State", prior.to_string(), "Predicted Position", likelihood.to_string(), "Estimated State", posterior.to_string())
+    
     '''
     Loop
     '''
 
     sensor_var = 0.2
     x0 = GaussianDistribution(10, sensor_var**0.5)
-    v0 = GaussianDistribution(15, 0.7)
-    a0 = GaussianDistribution(0, 0)
+    v0 = GaussianDistribution(5, 0.7)
+    a0 = GaussianDistribution(1, 0)
+    posterior = None
+    # groundtruths
+    observed_x0 = 10
+    observed_v0 = 5
+    observed_a0 = 1
     predicted, x_estimated = [], []
     dt = 1
     utils = util.Utils()
     observed_data = utils.get_data(
-        n=10, x0=x0.mu, v=v0.mu, a=a0.mu, dt=dt, mu=0, sigma=5)
+        n=10, x0=observed_x0, v=observed_v0, a=observed_a0, dt=dt, mu=0, sigma=5)
+    # observed_data = [2 * math.sin(i/3.) for i in range(100)]
     kf_filter = KalmanFilter1d(x0, v0, a0)
     for z in observed_data:
         prior = GaussianDistribution(z, sensor_var**0.5)
         likelihood = kf_filter.predict(dt=1)
         posterior = kf_filter.update(likelihood, prior)
-        print("Measured State", prior.to_string(), "Predicted Position", likelihood.to_string(), "Estimated State", posterior.to_string())
+        print("Measured State", prior.to_string(), "Predicted Position", likelihood.to_string(), "Estimated State", posterior.to_string(), "K Gain", kf_filter.get_k_gain())
 
         predicted.append(likelihood.mu)
         x_estimated.append(posterior.mu)
 
     utils.plot({"predicted": predicted, "observed": observed_data,
                "estimated": x_estimated}, dt)
+    
+    plot_range = (87, 95)
+    utils.plot({"Estimated Position {}".format(posterior.to_string()) : [posterior.pdf(plot_range[0] + i/100) for i in range(0, 1000)]}, dt/100, plot_range[0])
 '''
 
 Some notes:
@@ -136,6 +153,7 @@ p(A) is the prior -> belief before incorporating measurements
 p(B | A) is the likelihood -> probability type
 p(A | B) is the posterior
 
+Kalman Gain is a scaling term that chooses a value partway between muz and mupredicted
 
 Update function is just bayes rule (do more research here)
 Predict function is total probability theorem; predict computes probability of being at any given position given the probability of all the possible movement events

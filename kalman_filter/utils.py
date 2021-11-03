@@ -19,6 +19,8 @@ class GaussianDistribution:
     def __init__(self, mu=0, sigma=1):
         self.mu = mu
         self.sigma = sigma
+        self.var = sigma**2 # was added later, thus not nicely integrated
+
     def pdf(self, x):
         return (math.e ** (-0.5 * ((x - self.mu)/self.sigma)**2))/((math.pi*2)**0.5*self.sigma)
     def cdf(self, x0, x1):

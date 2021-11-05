@@ -3,9 +3,10 @@ Multivariate Kalman Filter
 '''
 
 import numpy as np
+import utils as util
 
 class KalmanFilter:
-    def __init__(self, F, x0, B, u, P, Q, H, R):
+    def __init__(self, F, x0, B, u, P, Q, H, R, dt):
         '''
         All matrices are numpy arrays
         @param F: state transition function; x@F is prior (prediction)
@@ -30,9 +31,15 @@ class KalmanFilter:
         self.x_prior = None
         self.P_prior = None
         self.I = np.eye(len(x0))
+        self.dt = dt
+
+    # TODO B and U here I think
     def predict(self):
         '''
         computes mean and covariance of prior
+
+        xbar = Fx + Bu
+        Pbar = FPF.T + Q
         '''
         self.x_prior = np.dot(self.F, self.x) + np.dot(self.B, self.u)
         self.P_prior = np.dot(np.dot(self.F, self.P), self.F.T) + self.Q
@@ -42,6 +49,11 @@ class KalmanFilter:
         '''
         Merges prior and Z to get posterior (state estimation)
         @param z: measurement
+
+        y = z - Hxbar
+        K = Pbar*H.T*inv(H*Pbar*H.T + R)
+        x = xbar + Ky
+        P = (I - KH)*Pbar
         '''
         self.y = z - np.dot(self.H, self.x_prior) # residual
         self.K = np.dot(np.dot(self.P_prior, self.H.T), np.linalg.inv(np.dot(np.dot(self.H, self.P_prior), self.H.T) + self.R)) # Kalman Gain
@@ -49,6 +61,40 @@ class KalmanFilter:
         self.P = np.dot(self.I - np.dot(self.K, self.H), self.P_prior)
         return (self.x, self.P)
 
+if __name__ == '__main__':
+    dt = 1
+    x = np.array([x0:= 0, v0:= 3])
+    P = np.eye(2)
+    F = np.array([
+                    [1, dt], [0, 1]
+                 ])
+    B = 0
+    u = 0
+    Q = np.eye(2)
+    H = np.array([1, 0]).reshape((1, 2))
+
+    z = np.array([x0])
+    R = np.array([measure_var:=1])
+
+    kf = KalmanFilter(F=F, x0=x, B=B, u=u, P=P, Q=Q, H=H, R=R, dt=dt)
+
+
+    # General Test
+
+
+    utils = util.Utils()
+    z_positions = utils.get_data(
+        n=100, x0=x0, v=v0, a=0, dt=dt, mu=0, sigma=10)
+    prior_positions = []
+    posterior_positions = []
+    for z in z_positions:
+        prior = kf.predict()
+        posterior = kf.update(z)
+        prior_positions.append(prior)
+        posterior_positions.append(posterior)
+    utils.plot({"predicted": [r[0][0] for r in prior_positions]
+                , "observed": z_positions,
+               "estimated": [r[0][0] for r in posterior_positions]}, dt)
 '''
 "
 update residual in measurement space not state space because measurements are not invertible. it is not possible to convert a measurement of position into a state containing velocity however you can convert a state containing position and velocity into a equivalent measurement containing only position"

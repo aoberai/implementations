@@ -87,11 +87,14 @@ if __name__ == '__main__':
         n=100, x0=x0, v=v0, a=0, dt=dt, mu=0, sigma=10)
     prior_positions = []
     posterior_positions = []
+    ks = []
+
     for z in z_positions:
         prior = kf.predict()
         posterior = kf.update(z)
         prior_positions.append(prior)
         posterior_positions.append(posterior)
+        print("K:", kf.K)
     utils.plot({"predicted": [r[0][0] for r in prior_positions]
                 , "observed": z_positions,
                "estimated": [r[0][0] for r in posterior_positions]}, dt)

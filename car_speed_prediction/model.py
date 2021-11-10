@@ -1,16 +1,25 @@
+'''
+Model architecure inspired from: https://arxiv.org/pdf/1412.0767.pdf
+'''
+
 import tensorflow as tf
 from tensorflow.keras.layers import *
-import constants
 import numpy as np
+import constants as ct
 
-frames = np.load("frames.npy")
-speeds = np.load("speeds.npy")
+'''
+TODO: Currently not using OpFlow
+'''
 
-print(np.shape(frames))
+frames_X = np.load("frames.npy")
+# flow_X = np.load("flow.npy")
+speeds_Y = np.load("speeds.npy")
+
+
 ds = tf.keras.preprocessing.timeseries_dataset_from_array(
-    data=frames,
-    targets=speeds,
-    sequence_length=constants.frame_window_size,
+    data=frames_X,
+    targets=speeds_Y,
+    sequence_length=ct.TIMESTEPS,
     sampling_rate=1,
     sequence_stride=1,
     shuffle=True,
@@ -21,121 +30,110 @@ validation_set_size = round(ds.__len__().numpy() * 0.1)
 validation_ds = ds.take(validation_set_size)
 train_ds = ds.skip(validation_set_size)
 
-# simple cnn lstm architecture
-# lrcn_model = tf.keras.Sequential()
-# lrcn_model.add(Conv2D(32, (5, 5), input_shape = (constants.frame_window_size,) + np.shape(frames[0])))
-# lrcn_model.add(MaxPooling2D((2, 2)))
-# lrcn_model.add(LeakyReLU())
-# lrcn_model.add(BatchNormalization())
-# lrcn_model.add(Conv2D(64, (3, 3)))
-# lrcn_model.add(MaxPooling2D((2, 2)))
-# lrcn_model.add(LeakyReLU())
-# lrcn_model.add(BatchNormalization())
-# lrcn_model.add(Conv2D(32, (3, 3)))
-# lrcn_model.add(MaxPooling2D((2, 2)))
-# lrcn_model.add(LeakyReLU())
-# lrcn_model.add(BatchNormalization())
-# lrcn_model.add(Conv2D(8, (3, 3)))
-# lrcn_model.add(MaxPooling2D((2, 2)))
-# lrcn_model.add(LeakyReLU())
-# lrcn_model.add(BatchNormalization())
-# lrcn_model.add(Flatten())
-# lrcn_model.add(Dense(32, activation='sigmoid'))
-# lrcn_model.add(Dense(16, activation='relu'))
-# lrcn_model.add(Dense(1))
+# TODO: work for timeseries?
+def augmentation(inputs):
+    # flip over vert 
+    x = RandomFlip(mode="horizontal")(inputs)
+    # jitter
+    x = Resizing(ct.IMG_SIZE[0]*1.2, ct.IMG_SIZE[1]*1.2)(x)
+    x = RandomCrop(ct.IMG_SIZE[0], ct.IMG_SIZE[1])(x)
+    x = RandomTranslation(height_factor=0.2, width_factor=0.2, fill_mode="wrap")(x)
+    # contrast
+    x = RandomContrast(0.1)(x)
+    # zoom
+    x = RandomZoom(0.1)(x)
+    # rotation
+    x = RandomRotation(0.05)(x)
+    # brightness
+    x = RandomBrightness(0.1)(x)
+    return x
 
+def model():
+    inputs = tf.keras.Input((ct.TIMESTEPS,) + (ct.IMG_SIZE))
+    x = Conv3D(64, (3, 3, 3),  activation='relu', padding='same')(inputs)
+    x = MaxPooling3D(pool_size=(1, 2, 2), strides=(1, 2, 2), padding='valid')(x)
 
-def build_model_flat():
-    #frame_inp = Input(shape=(224, 224, 3))
-    op_flow_inp = Input(shape=(constants.frame_window_size,) + np.shape(frames[0]))
-    filters = [3, 5]
-    op_flows = []
-    # op_flow = BatchNormalization()(op_flow_inp)
-    op_flow = (op_flow_inp)
-    for i, filter_size in enumerate(filters):
-        int_layer = Dropout(.2)(op_flow)
-        int_layer = Conv2D(8, (filter_size,filter_size), activation = "relu", data_format = "channels_last")(int_layer)
-        int_layer = MaxPooling2D(pool_size = (1,2))(int_layer)
-        int_layer = Conv2D(16, (filter_size,filter_size), activation = "relu", data_format = "channels_last")(int_layer)
-        int_layer = MaxPooling2D(pool_size = (1,2))(int_layer)
-        int_layer = Conv2D(32, (filter_size,filter_size), activation = "relu", data_format = "channels_last")(int_layer)
-        int_layer = Conv2D(64, (filter_size,filter_size), activation = "relu", data_format = "channels_last")(int_layer)
-        #int_layer = Dropout(.3)(int_layer)
-        int_layer = Conv2D(128, (filter_size,filter_size), activation = "relu", data_format = "channels_last")(int_layer)
-        int_layer = MaxPooling2D()(int_layer)
-        int_layer = Conv2D(256, (filter_size,filter_size), activation = "relu", data_format = "channels_last")(int_layer)
-        int_layer = MaxPooling2D()(int_layer)
-        int_layer = Conv2D(512, (filter_size,filter_size), activation = "relu",
-                           data_format = "channels_last", padding = "same")(int_layer)
-        int_layer = MaxPooling2D()(int_layer)
-        int_layer_max = GlobalMaxPool2D()(int_layer)
-        int_layer_avg = GlobalAvgPool2D()(int_layer)
-        conc = concatenate([int_layer_max, int_layer_avg])
-        op_flows.append(conc)
-    conc = concatenate(op_flows)
-    #conc = BatchNormalization()(conc)
-    #conc = SpatialDropout1D(.2)(conc)
-    #conc = CuDNNGRU(256)(conc)
-#     conc = Dropout(.2)(conc)
-    conc = Dense(500, activation = "relu")(conc)
-#     conc = Dropout(.2)(conc)
-    conc = Dense(250, activation = "relu")(conc)
-#     conc = Dropout(.1)(conc)
-    result = Dense(1, activation='linear')(conc)
+    x = Conv3D(128, (3, 3, 3),  activation='relu', padding='same')(x)
+    x = MaxPooling3D(pool_size=(2, 2, 2), strides=(2, 2, 2), padding='valid')(x)
+
+    x = Conv3D(256, (3, 3, 3),  activation='relu', padding='same')(x)
+    x = Conv3D(256, (3, 3, 3),  activation='relu', padding='same')(x)
+    x = MaxPooling3D(pool_size=(2, 2, 2), strides=(2, 2, 2), padding='valid')(x)
+
+    x = Conv3D(512, (5, 5, 5),  activation='relu', padding='same')(x)
+    x = Conv3D(512, (5, 5, 5),  activation='relu', padding='same')(x)
+    x = MaxPooling3D(pool_size=(2, 2, 2), strides=(2, 2, 2), padding='valid')(x)
+
+    x = Conv3D(512, (5, 5, 5),  activation='relu', padding='same')(x)
+    x = Conv3D(512, (5, 5, 5),  activation='relu', padding='same')(x)
+
+    # TODO: Need casual padding?
+    x = Flatten()(x)
     
-    model = Model(inputs=[
-        #frame_inp,
-        op_flow_inp], outputs=[result])
-    print(model.summary())
-    model.compile(loss="mse", optimizer='adam')
+    x = Dense(1024)(x)
+    x = Dropout(0.5)(x)
+    x = LeakyReLU()(x)
+    x = BatchNormalization()(x)
 
-    return model
+    x = Dense(256)(x)
+    x = Dropout(0.5)(x)
+    x = LeakyReLU()(x)
+    x = BatchNormalization()(x)
 
-lrcn_model = build_model_flat()
+    x = Dense(1)(x)
+    x = Dropout(0.5)(x)
+    outputs = ReLU()(x)
 
-# CNN
-# lrcn_model.add(TimeDistributed(Conv2D(32, (3,3)), input_shape=(constants.frame_window_size,) + np.shape(frames[0])))
-# lrcn_model.add(TimeDistributed(MaxPooling2D((2, 2))))
-# lrcn_model.add(TimeDistributed(LeakyReLU()))
-#
-# lrcn_model.add(TimeDistributed(Conv2D(64, (3, 3))))
-# lrcn_model.add(TimeDistributed(MaxPooling2D((2, 2))))
-# lrcn_model.add(TimeDistributed(LeakyReLU()))
-#
-# lrcn_model.add(TimeDistributed(Conv2D(128, (3, 3))))
-# lrcn_model.add(TimeDistributed(MaxPooling2D((2, 2))))
-# lrcn_model.add(TimeDistributed(LeakyReLU()))
-#
-# lrcn_model.add(TimeDistributed(Flatten()))
+    return tf.keras.Model(inputs, outputs, name="Decoder")
 
-# LSTM
-# lrcn_model.add(LSTM(128, activation='tanh', return_sequences=True))
-# lrcn_model.add(LSTM(64, activation='tanh', return_sequences=True))
-# lrcn_model.add(Dropout(0.5))
-# lrcn_model.add(Dense(128, activation='relu'))
-# lrcn_model.add(Dense(64, activation='relu'))
-# lrcn_model.add(Dropout(0.5))
-# lrcn_model.add(Dense(32, activation='relu'))
-# lrcn_model.add(Dense(1, activation='relu'))
+c3d_model = model()
+sgd = tf.keras.optimizers.SGD(lr=1e-5, decay=0.0005, momentum=0.9)
 
-lrcn_model.compile(
-    optimizer=tf.keras.optimizers.Adam(
-        learning_rate=1e-4),
+c3d_model.compile(
+    optimizer=sgd,
     loss="mse")
-print(lrcn_model.summary())
+
+print(c3d_model.summary())
 
 tf.keras.utils.plot_model(
-    lrcn_model,
-    to_file="architecture_model.png",
-    show_shapes=True)
+    c3d_model,
+    to_file="c3d_model.png",
+    show_shapes=True,
+    expand_nested=True
+)
 
-earlystopping_callback = tf.keras.callbacks.EarlyStopping(
-    monitor='val_loss', patience=7, restore_best_weights=True)
+# tf.keras.utils.plot_model(
+#     lrcn_model,
+#     to_file="architecture_model.png",
+#     show_shapes=True)
+#
+# earlystopping_callback = tf.keras.callbacks.EarlyStopping(
+#     monitor='val_loss', patience=7, restore_best_weights=True)
+#
+# lrcn_model.fit(
+#     x=train_ds,
+#     epochs=30,
+#     validation_data=validation_ds,
 
-lrcn_model.fit(
-    x=train_ds,
-    epochs=30,
-    validation_data=validation_ds,
-    callbacks=[earlystopping_callback])
-
-lrcn_model.save(constants.model_path)
+#
+# lrcn_model.compile(
+#     optimizer=tf.keras.optimizers.Adam(
+#         learning_rate=1e-4),
+#     loss="mse")
+# print(lrcn_model.summary())
+#
+# tf.keras.utils.plot_model(
+#     lrcn_model,
+#     to_file="architecture_model.png",
+#     show_shapes=True)
+#
+# earlystopping_callback = tf.keras.callbacks.EarlyStopping(
+#     monitor='val_loss', patience=7, restore_best_weights=True)
+#
+# lrcn_model.fit(
+#     x=train_ds,
+#     epochs=30,
+#     validation_data=validation_ds,
+#     callbacks=[earlystopping_callback])
+#
+# lrcn_model.save(ct.model_path)

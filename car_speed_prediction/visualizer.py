@@ -2,9 +2,8 @@ import numpy as np
 import tensorflow as tf
 import constants
 import cv2
-from dense_opflow import DenseOpFlow
+from dflow import DenseOpFlow
 import argparse
-
 
 def initialize_video(vid_type="train"):
     if vid_type == "train":

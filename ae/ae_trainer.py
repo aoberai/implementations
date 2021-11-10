@@ -53,7 +53,6 @@ def encoder(input_shape, output_latent_space_dims):
 encoder_model = encoder((28, 28, 1), latent_space_dims)
 
 def decoder(output_shape, input_latent_space_dims):
-  decoder = Sequential()
   inputs = Input(shape=input_latent_space_dims)
   x = layers.Dense(output_shape[0] * output_shape[1])(inputs)
   x = tf.keras.layers.Reshape((28, 28, 1), input_shape=(784,))(x)

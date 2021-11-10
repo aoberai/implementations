@@ -1,3 +1,3 @@
-IMG_SIZE = (480 // 4, 360 // 4, 1)
-MODEL_PATH = "models/lrcn_speed_predictor.h5"
+IMG_SIZE = (480 // 7, 360 // 7, 1)
+MODEL_PATH = "models/c3d_speed_predictor.h5"
 TIMESTEPS = 15

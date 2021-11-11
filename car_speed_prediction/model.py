@@ -18,13 +18,13 @@ from tensorflow.compat.v1 import InteractiveSession
 TODO: Currently not using OpFlow
 '''
 
-frames_X = np.load("frames.npy")
-# flow_X = np.load("flow.npy")
-speeds_Y = np.load("speeds.npy")
+frames_X = np.load("data/frames.npy")
+flow_X = np.load("data/flow.npy")
+speeds_Y = np.load("data/speeds.npy")
 
 
 ds = tf.keras.preprocessing.timeseries_dataset_from_array(
-    data=frames_X,
+    data=flow_X,
     targets=speeds_Y,
     sequence_length=ct.TIMESTEPS,
     sampling_rate=1,
@@ -76,7 +76,7 @@ def model():
 
     # TODO: Need casual padding?
     x = Flatten()(x)
-    
+
     x = Dense(1024)(x)
     x = Dropout(0.5)(x)
     x = LeakyReLU()(x)
@@ -121,19 +121,17 @@ tf.keras.utils.plot_model(
 earlystopping_callback = tf.keras.callbacks.EarlyStopping(
     monitor='val_loss', patience=4, restore_best_weights=True)
 
-checkpoint_filepath = '/tmp/checkpoint'
+checkpoint_filepath = './tmp/checkpoint'
 model_checkpoint_callback = tf.keras.callbacks.ModelCheckpoint(
         filepath=checkpoint_filepath,
-        save_weights_only=False,
-        monitor='val_accuracy',
-        mode='max',
-        save_best_only=True)
+        save_weights_only=False)
 
 # TODO: very temporarily using validation set as train
 c3d_model.fit(
     x=train_ds,
-    epochs=30,
-    validation_data=validation_ds, callbacks=[earlystopping_callback, model_checkpoint_callback])
+    epochs=100,
+    validation_data=validation_ds,
+    callbacks=[earlystopping_callback, model_checkpoint_callback])
 
 
 c3d_model.save(ct.MODEL_PATH)

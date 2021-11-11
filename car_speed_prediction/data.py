@@ -25,7 +25,7 @@ train_vid.set(cv2.CAP_PROP_POS_FRAMES, start_frame)
 
 def preprocess(frame):
     global op_flow
-    frame = cv2.resize(cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)[270:270+80,200:200+240] , ct.IMG_SIZE[0:2])
+    frame = cv2.resize(cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)[260:260+90, 180:180+260] , ct.IMG_SIZE[0:2])
     # roi = np.transpose(cv2.resize(cv2.cvtColor(cv2.imread("roi_mask.jpg"), cv2.COLOR_BGR2GRAY), np.shape(frame)[0:2]))
     # print(np.shape(frame), np.shape(roi))
     # frame = cv2.bitwise_and(frame, roi)
@@ -35,14 +35,15 @@ def preprocess(frame):
     '''
     Visualization
     '''
-    # cv2.imshow("Frame", cv2.resize(np.hstack([frame, opflow_frame]), tuple(
-        # [scale_factor := 7 * i for i in ct.IMG_SIZE[0:2]])))
-    # cv2.waitKey(1)
+    cv2.imshow("Frame", cv2.resize(np.hstack([frame, opflow_frame]), tuple(
+        [scale_factor := 7 * i for i in ct.IMG_SIZE[0:2]])))
+    cv2.waitKey(1)
 
     frame = frame / 255
     opflow_frame = opflow_frame / 255
     # merged = np.stack((frame / 255, opflow_frame / 255), axis=2)
     return (frame, opflow_frame)
+
 
 counter = 0
 while True:

@@ -1,9 +1,33 @@
 import numpy as np
 import tensorflow as tf
-import constants
+import constants as ct
 import cv2
 from dflow import DenseOpFlow
 import argparse
+
+op_flow = None
+
+def preprocess(frame):
+    global op_flow
+    frame = cv2.resize(cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)[260:260+90, 180:180+260] , ct.IMG_SIZE[0:2])
+    # roi = np.transpose(cv2.resize(cv2.cvtColor(cv2.imread("roi_mask.jpg"), cv2.COLOR_BGR2GRAY), np.shape(frame)[0:2]))
+    # print(np.shape(frame), np.shape(roi))
+    # frame = cv2.bitwise_and(frame, roi)
+    if op_flow is None:
+        op_flow = DenseOpFlow(cv2.cvtColor(frame, cv2.COLOR_GRAY2BGR)) # TODO: this scuffed
+    opflow_frame = cv2.cvtColor(op_flow.get(frame), cv2.COLOR_BGR2GRAY)
+    '''
+    Visualization
+    '''
+    # cv2.imshow("Frame", cv2.resize(np.hstack([frame, opflow_frame]), tuple(
+    #     [scale_factor := 7 * i for i in ct.IMG_SIZE[0:2]])))
+    # cv2.waitKey(1)
+
+    frame = frame / 255
+    opflow_frame = opflow_frame / 255
+    # merged = np.stack((frame / 255, opflow_frame / 255), axis=2)
+    return (frame, opflow_frame)
+
 
 def initialize_video(vid_type="train"):
     if vid_type == "train":
@@ -25,7 +49,7 @@ cli_parser = argparse.ArgumentParser(description='')
 cli_parser.add_argument('--model',
                         metavar='model',
                         type=str,
-                        default=constants.model_path,
+                        default=ct.MODEL_PATH,
                         help='Model to run inference on')
 
 cli_parser.add_argument('--pos',
@@ -41,7 +65,7 @@ if __name__ == "__main__":
     position = round(args.pos * vid.get(cv2.CAP_PROP_FRAME_COUNT))
     vid.set(cv2.CAP_PROP_POS_FRAMES, position)
 
-    op_flow = DenseOpFlow(cv2.resize(vid.read()[1], constants.image_size[0:2]))
+    # op_flow = DenseOpFlow(cv2.resize(vid.read()[1], ct.IMG_SIZE[0:2]))
     speed_predictor = tf.keras.models.load_model(args.model)
     model_frames = []
     counter = position
@@ -50,13 +74,9 @@ if __name__ == "__main__":
         ret, frame = vid.read()
         if not ret:
             break
-        model_frame = cv2.resize(
-            frame, (constants.image_size[0], constants.image_size[1],))
+        model_frames.append(preprocess(frame)[1])
 
-        opflow_frame = op_flow.get(model_frame)
-        merged = np.concatenate((model_frame / 255, opflow_frame / 255, ), 2)
-        model_frames.append(merged)
-        if len(model_frames) > constants.frame_window_size:
+        if len(model_frames) > ct.TIMESTEPS:
             del model_frames[0]
             frames_np = np.expand_dims(np.array(model_frames), 0)
             predicted_speed = speed_predictor.predict(frames_np)
@@ -64,9 +84,9 @@ if __name__ == "__main__":
                 "Speed Predictor",
                 cv2.resize(
                     frame,
-                    (constants.image_size[0] *
+                    (ct.IMG_SIZE[0] *
                      3,
-                     constants.image_size[1] *
+                     ct.IMG_SIZE[1] *
                      3)))
             cv2.waitKey(1)
             print("Predicted Speed:",

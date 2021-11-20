@@ -3,6 +3,8 @@ Sources:
 https://muthu.co/harris-corner-detector-implementation-in-python/
 feature://opencv24-python-tutorials.readthedocs.io/en/latest/py_tutorials/py_feature2d/py_features_harris/py_features_harris.html
 https://sbme-tutorials.github.io/2018/cv/notes/6_week6.html
+
+"Harris Detector is rotation-invariant, which means that the detector can still distinguish the corners even if the image is rotated. However, the Harris Detector cannot perform well if the image is scaled differently."
 '''
 
 import cv2

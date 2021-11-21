@@ -1,0 +1,107 @@
+""
+If you just want to know if the model is observable, you could take the numerical Jacobians of f(x, u) and h(x, u) w/r/t the current state vector (use https://github.com/calcmogul/frccontrol/blob/main/frccontrol/numerical_jacobian.py#L25 ), then make an observability matrix out of it with https://python-control.readthedocs.io/en/0.9.0/generated/control.obsv.html and find the rank with https://numpy.org/doc/stable/reference/generated/numpy.linalg.matrix_rank.html.
+
+If you want to know which states/modes are unobservable, you can take the SVD of the observability Gramian and look at the eigenvalues and eigenvectors you get out of it:
+https://python-control.readthedocs.io/en/0.9.0/generated/control.gram.html 
+""
+
+
+kalman filter essentially find midpoint between measurement and prediction ( both of which have gaussian noise ) based on some computed gain called K which can be found through the minimization of the posterior estimate covariance
+
+Some notes:
+
+posterior is distribution after incorporating the measurement information (after update)
+prior is before including measurement's information (predictions)
+likelihood is how likely each position is given a measurement - not a probability distribution since does not sum to one
+posterior = likelihood * prior / normalization for Bayes Discrete Filter
+
+State after performing prediction the prior or prediction
+State after update the posterior or estimated state
+
+Estimated state is basically just prior (measured state) times likelihood (predicted state); by nature of Gaussian Distribution, creates a more accurate estimate (narrower product gaussian)
+
+Bayes Rule:
+              ^
+         A  /    |  !A
+           /      |
+          /        |
+         /          |
+        / |         /  |
+     B /   | !B    / B  | !B
+
+B through A -> P(B | A)
+B through !A -> P(B | !A)
+
+Conversely, P(A | B) is P (A U B) / P(B) (probability of both over given)
+    - P(B) is P(A) * P(B | A) + P(!A) * P(B | !A)
+    - P(A U B) is P(A) * P(B|A)
+
+Thus, Bayes Theorem is P(A | B):
+        P(A) * P(B|A)
+   ------------------------
+P(A) * P(B | A) + P(!A) * P(B | !A)
+
+            OR
+
+        P(A) * P(B|A)
+   ------------------------
+            P(B)
+
+Also works for probability distribution ^
+
+----
+B is evidence
+p(A) is the prior -> belief before incorporating measurements
+p(B | A) is the likelihood -> probability type
+p(A | B) is the posterior
+
+Kalman Gain is a scaling term that chooses a value partway between muz and mupredicted
+
+update residual in measurement space not state space because measurements are not invertible. it is not possible to convert a measurement of position into a state containing velocity however you can convert a state containing position and velocity into a equivalent measurement containing only position"
+
+a_var = [70, 80, 90, 100, 110, 120, 130]
+b_var = [7, 8, 9, 10, 11, 12, 13]
+print(np.cov(a_var, b_var))
+
+W = [70.1, 91.2, 59.5, 93.2, 53.5]
+H = [1.8, 2.0, 1.7, 1.9, 1.6]
+print(np.cov(H, W))
+
+Some notes:
+
+MultiVariate Gaussian Distributions
+
+
+mu is n dimensional vector
+covariance (short for correlated variances) is n by n
+    - diagonal contains variance for each variable
+    - ex. sigma_13 is covariance between first and third variables
+
+Covariance matrix is symmetric as sigma_13 = sigma_31
+
+Ex.
+
+array([[  0.025,   2.727],
+       [  2.727, 327.235]])
+
+This tells me a_var has variance of 0.025, b_var has variance of 327.235, and a_var and b_var are positively correlated at 2.727: as a_var increases, b_var does too"
+
+Ex2. 
+
+X = np.linspace(1, 10, 100)
+Y = np.linspace(1, 10, 100)
+np.cov(X, Y)
+
+array([[6.956, 6.956],
+       [6.956, 6.956]])
+
+Covariance is equal to variance in x and y. Thus is perfect line
+
+Ex3.
+X = np.linspace(1, 10, 100)
+Y = -(np.linspace(1, 5, 100) + np.sin(X)*.2)
+plot_correlated_data(X, Y)
+print(np.cov(X, Y))
+
+[[ 6.956 -3.084]
+ [-3.084  1.387]]

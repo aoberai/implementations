@@ -1,0 +1,11 @@
+For continuous time system: x dot = Ax + Bu where u = K(r-x); r is reference and x is state
+A_closedloop = A - BK where K is gain matrix; BK part makes it closedloop
+A is dynamics model not including system response
+B is input response matrix
+Optimize K such that poles of A_closedloop aka eigen values (which are complex and defined as ) meet certain requirements where a system can be defined as stable or unstable wrt system oscillations
+Pole placement just means making system do what you want wrt oscillations
+
+Discretize continuous versions of functions to use it functionally
+
+Fact Check:
+"the real part is the stretch of the eigenvector, and imaginary is the rotation in the 2D plane"

@@ -9,3 +9,23 @@ Discretize continuous versions of functions to use it functionally
 
 Fact Check:
 "the real part is the stretch of the eigenvector, and imaginary is the rotation in the 2D plane"
+
+
+Prediction Step:
+Get Equation
+Get into Ax + Bu form
+
+
+Things in state space need to be derivatives or different equations
+
+Ex:
+
+Position state and velocity input:
+
+dx/dt = v
+dx/dt = 0 x + 1 v
+dx/dt = Ax + Bu
+
+Ax+Bu integrated over some time horizon is the prediction
+
+Things no longer representable in state space when nonlinear, requires jacobian to get linear approximations

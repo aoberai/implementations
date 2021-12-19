@@ -1,0 +1,154 @@
+
+
+Reference Lecture: https://www.cs.cmu.edu/~16385/s17/Slides/13.1_Stereo_Rectification.pdf
+
+Important: Amount of horizontal movement is inversely proportional to distance
+
+
+X     x
+-  =  -
+Z     f
+
+b - X   x'
+----- = -
+  Z     f
+
+f for focal length (
+b for baseline (distance between pinhole of each cam)
+
+Disparity: 
+d = x - x' = bf
+						 --
+						 Z
+
+Z = bf
+		--
+		d
+
+^ shows that disparity inversely proportional to distance
+
+
+Steps:
+
+1. Rectify Images (aka make epipolar lines horizontal)
+2. For each pixel
+	 a. Find epipolar line
+	 b. Scan line for best match
+	 c. Compute depth from disparity
+
+
+					  X
+	 ._________
+   |        /\
+	 |			 /||\
+	 |		  / || \
+	 | 		 /  ||  \
+	 | 	|	/   ||Z  \ |
+	 |	|/    ||    \|
+	 | 	/---  ||  ---\--------> image plane
+	 | / x    ||   x' \  |  f
+	 |/       ||       \ |
+	  ------------------ .
+		O	      b          O'
+
+1. Camera Calib
+	Extrinsic (3d location and orientation of cam)
+	Intrinsic (focal length and pixel size)
+
+Calibration: https://www.youtube.com/watch?v=uHApDqH-8UE
+x = PX where x is pixel coord, P is transformation, and X is world coordinate
+
+These are all homogeneous coordinates so decomposes to
+
+[ x ] =     [ X ]
+[ y ] =  P  [ Y ]
+[ z ] =     [ Z ]
+[ 1 ] =     [ 1 ]
+
+
+P is a chain of transforms which finally map from real world to pixel
+
+P includes:
+
+	Extrinsics: (pose of camera in world)
+		1. World/object coordinate system (S_o)
+		2. Camera coordinate system (S_k) 
+	Intrinsics: (mapping of scene to pixels)
+		3. Image (plane) coordinate system (S_c)
+		4. Sensor coordinate system (S_s)
+
+A good photo:
+
+![](p_transformations.png)
+
+Extrinsic Parameters
+
+Camera wrt World - Rigid Body Invertible transformation - Estimate 6 parameters (3 for position, 3 for heading)
+
+
+
+Homogenous Coordinates
+
+https://www.youtube.com/watch?v=MQdm0Z_gNcw
+
+Represent ray from a point of origin -> every point on that line represents same point on euclidean world - provides 3d interpretation to 2d data kinda without messy multdim matrix
+
+Point on plane of origin is infinitesimally far away since cant be represented euclidian way
+
+Very nice visual:
+![](homog-euclid-visual.png)
+
+You can also do 3d -> 4d
+
+Origin [ 0 ]
+			 [ 0 ]
+			 [...]
+			 [ 1 ]
+
+x = λx
+homogeneous property aka [4 8 2]  [2 4 1]
+
+Advantages
+	Can express points at infinity with finite coords
+	Single matrix can represent affine and projective transformations ( and very easily so X' = HX )
+
+X' = HX
+
+^ projective transformation is invertible linear mapping
+
+Euclidean  homogeneous
+	[ 2 ] ->   [ 2 ]
+	[ 4 ]      [ 4 ]
+	           [ 1 ]
+
+homogeneous         Euclidean
+
+  [ U ] -> [ U/W ]  ->  [ U/W ]
+	[ V ]    [ V/W ]      [ V/W ]
+	[ W ]    [  1  ]
+
+Say translation matrix:
+
+T = [ /   t ]
+		[ 0^t 1 ]
+
+x' = Tx
+
+Point shifted by t ^
+
+R = [ R   0^T ]
+		[ 0^T	1	  ]
+
+
+
+2d means lowercase, 3d means capitalized notation
+
+last component becomes 0 if at infinity (which means if you went back into euclidean, it would be undefined). beautiful because retains direction of that point but also models the fact that it is infinitely far away just with finite values
+
+Pinhole Camera
+
+Box with infinitisimal small hole which allows rays of light to go through
+
+Euclidean geom suboptimal -> prefer projective geometry 
+
+

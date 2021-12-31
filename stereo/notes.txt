@@ -1,4 +1,4 @@
-
+Stereo Rectification: https://www.andreasjakl.com/understand-and-apply-stereo-rectification-for-depth-maps-part-2/
 
 Reference Lecture: https://www.cs.cmu.edu/~16385/s17/Slides/13.1_Stereo_Rectification.pdf
 

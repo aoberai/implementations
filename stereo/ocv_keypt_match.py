@@ -2,8 +2,11 @@ import numpy as np
 import cv2
 from matplotlib import pyplot as plt
 
-l_img = cv2.imread('l_cap.png', cv2.IMREAD_GRAYSCALE)
-r_img = cv2.imread('r_cap.png', cv2.IMREAD_GRAYSCALE)
+# l_img = cv2.imread('l_cap.png', cv2.IMREAD_GRAYSCALE)
+# r_img = cv2.imread('r_cap.png', cv2.IMREAD_GRAYSCALE)
+
+l_img = cv2.imread('rectified_1.png', cv2.IMREAD_GRAYSCALE)
+r_img = cv2.imread('rectified_2.png', cv2.IMREAD_GRAYSCALE)
 # cv2.imshow("stereo_img", cv2.hconcat([l_img, r_img]))
 # cv2.waitKey(0)
 

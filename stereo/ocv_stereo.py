@@ -7,13 +7,13 @@ imgL = cv2.imread("rectified_1.png",0)
 imgR = cv2.imread("rectified_2.png",0)
 
 # Setting parameters for StereoSGBM algorithm
-minDisparity = 0;
-numDisparities = 64;
+minDisparity = -64;
+numDisparities = 192;
 blockSize = 8;
-disp12MaxDiff = 1;
-uniquenessRatio = 10;
-speckleWindowSize = 10;
-speckleRange = 8;
+disp12MaxDiff = 10;
+uniquenessRatio = 1;
+speckleWindowSize = 150;
+speckleRange = 2;
 
 # Creating an object of StereoSGBM algorithm
 stereo = cv2.StereoSGBM_create(minDisparity = minDisparity,
@@ -30,5 +30,5 @@ disp = stereo.compute(imgL, imgR).astype(np.float32)
 disp = cv2.normalize(disp,0,255,cv2.NORM_MINMAX)
 
 # Displaying the disparity map
-cv2.imshow("disparity",disp)
+cv2.imshow("disparity",cv2.blur(cv2.blur(disp, (13, 13)), (13, 13)))
 cv2.waitKey(0)

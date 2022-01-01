@@ -1,5 +1,11 @@
 Stereo Rectification: https://www.andreasjakl.com/understand-and-apply-stereo-rectification-for-depth-maps-part-2/
 
+
+parallel cameras have epipole at inifinity
+
+homography matrix is 3 by 3 matrix which maps pt to a pt whereas essential matrix maps point on one image to epipolar line on other
+
+
 Reference Lecture: https://www.cs.cmu.edu/~16385/s17/Slides/13.1_Stereo_Rectification.pdf
 
 Important: Amount of horizontal movement is inversely proportional to distance

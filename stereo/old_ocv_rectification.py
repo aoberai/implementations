@@ -111,8 +111,8 @@ _, H1, H2 = cv2.stereoRectifyUncalibrated(
 
 img1_rectified = cv2.warpPerspective(l_img, H1, (w1, h1))
 img2_rectified = cv2.warpPerspective(r_img, H2, (w2, h2))
-# cv2.imwrite("rectified_1.png", img1_rectified)
-# cv2.imwrite("rectified_2.png", img2_rectified)
+cv2.imwrite("rectified_1.png", img1_rectified)
+cv2.imwrite("rectified_2.png", img2_rectified)
 # Draw the rectified images
 fig, axes = plt.subplots(1, 2, figsize=(15, 10))
 axes[0].imshow(img1_rectified, cmap="gray")

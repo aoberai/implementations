@@ -53,7 +53,7 @@ draw_params = dict(matchColor=(0, 255, 0),
 
 keypoint_matches = cv2.drawMatchesKnn(
         l_img, kp1, r_img, kp2, matches[300:500], None, **draw_params)
-cv2.imshow("Keypoint matches", keypoint_matches)
+cv2.imshow("Keypoint matches", cv2.resize(keypoint_matches, (480, 360)))
 cv2.waitKey(0)
 
 # # create BFMatcher object

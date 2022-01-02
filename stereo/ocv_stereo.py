@@ -30,5 +30,5 @@ disp = stereo.compute(imgL, imgR).astype(np.float32)
 disp = cv2.normalize(disp,0,255,cv2.NORM_MINMAX)
 
 # Displaying the disparity map
-cv2.imshow("disparity",cv2.blur(cv2.blur(disp, (13, 13)), (13, 13)))
+cv2.imshow("disparity", cv2.resize(disp, (480, 360)))
 cv2.waitKey(0)

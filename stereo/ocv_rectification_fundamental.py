@@ -2,10 +2,33 @@ import numpy as np
 import cv2
 from matplotlib import pyplot as plt
 
-l_img = cv2.imread('l_cap.png', cv2.IMREAD_GRAYSCALE)
-r_img = cv2.imread('r_cap.png', cv2.IMREAD_GRAYSCALE)
+l_img = cv2.imread('l_cap2.png', cv2.IMREAD_GRAYSCALE)
+r_img = cv2.imread('r_cap2.png', cv2.IMREAD_GRAYSCALE)
 # cv2.imshow("stereo_img", cv2.hconcat([l_img, r_img]))
 # cv2.waitKey(0)
+
+left_cam_file = cv2.FileStorage("left_cam.yml", cv2.FILE_STORAGE_READ)
+right_cam_file = cv2.FileStorage("right_cam.yml", cv2.FILE_STORAGE_READ)
+
+K1 = left_cam_file.getNode("K").mat()
+D1 = left_cam_file.getNode("D").mat()
+
+K2 = right_cam_file.getNode("K").mat()
+D2 = right_cam_file.getNode("D").mat()
+
+h,  w = l_img.shape[:2]
+
+newK1, roi1 = cv2.getOptimalNewCameraMatrix(K1, D1, (w, h), 1, (w, h))
+newK2, roi2 = cv2.getOptimalNewCameraMatrix(K2, D2, (w, h), 1, (w, h))
+# undistort
+dst1 = cv2.undistort(l_img, K1, D1, None, newK1)
+dst2 = cv2.undistort(r_img, K2, D2, None, newK2)
+x1, y1, w1, h1 = roi1
+x2, y2, w2, h2 = roi2
+dst1 = dst1[y1:y1+h1, x1:x1+w1]
+dst2 = dst2[y2:y2+h2, x2:x2+w2]
+l_img = dst1
+r_img = dst2
 
 # Initiate ORB detector
 sift = cv2.SIFT_create()

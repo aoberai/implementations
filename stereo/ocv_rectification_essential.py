@@ -1,8 +1,8 @@
 import cv2
 import numpy as np
 
-imgL = cv2.imread("l_cap.png",0)
-imgR = cv2.imread("r_cap.png",0)
+imgL = cv2.imread("l_cap2.png",0)
+imgR = cv2.imread("r_cap2.png",0)
 # TODO: this might be breaking things
 # imgL = cv2.resize(imgL, size)
 # imgR = cv2.resize(imgR, size)
@@ -23,7 +23,7 @@ R = stereo_file.getNode("R").mat()
 # print(R)
 T = stereo_file.getNode("T").mat()
 
-R1, R2, P1, P2, Q, roi1, roi2 = cv2.stereoRectify(cameraMatrix1=K1, distCoeffs1=D1, cameraMatrix2=K2, distCoeffs2=D2, imageSize=size, R=R, T=T, flags=cv2.CALIB_ZERO_DISPARITY, alpha=1)
+R1, R2, P1, P2, Q, roi1, roi2 = cv2.stereoRectify(cameraMatrix1=K1, distCoeffs1=D1, cameraMatrix2=K2, distCoeffs2=D2, imageSize=size, R=R, T=T, flags=cv2.CALIB_ZERO_DISPARITY, alpha=-1)
 
 leftMapX, leftMapY = cv2.initUndistortRectifyMap(K1, D1, R1, P1, size, cv2.CV_32FC1)
 left_rectified = cv2.remap(imgL, leftMapX, leftMapY, cv2.INTER_LINEAR, cv2.BORDER_CONSTANT)
@@ -31,10 +31,10 @@ rightMapX, rightMapY = cv2.initUndistortRectifyMap(K2, D2, R2, P2, size, cv2.CV_
 right_rectified = cv2.remap(imgR, rightMapX, rightMapY, cv2.INTER_LINEAR, cv2.BORDER_CONSTANT)
 
 cv2.imwrite("rectified_1.png", left_rectified)
-cv2.imwrite("rectified_2.png", imgR)
+cv2.imwrite("rectified_2.png", right_rectified)
 
 cv2.imshow("Left", left_rectified)
-cv2.imshow("Right", imgR)
+cv2.imshow("Right", right_rectified)
 cv2.waitKey(0)
 
 

@@ -72,9 +72,9 @@ if __name__ == '__main__':
         rightMapX, rightMapY = cv2.initUndistortRectifyMap(K2, D2, R2, P2, (width, height), cv2.CV_32FC1)
         right_rectified = cv2.remap(rightFrame, rightMapX, rightMapY, cv2.INTER_LINEAR, cv2.BORDER_CONSTANT)
 
-        cv2.imshow("win", cv2.hconcat([left_rectified, right_rectified]))
-        cv2.waitKey(0)
-        exit(0)
+        # cv2.imshow("win", cv2.hconcat([left_rectified, right_rectified]))
+        # cv2.waitKey(0)
+        # exit(0)
 
         # We need grayscale for disparity map.
         gray_left = cv2.cvtColor(left_rectified, cv2.COLOR_BGR2GRAY)

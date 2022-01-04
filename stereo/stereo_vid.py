@@ -48,24 +48,12 @@ def depth_map(imgL, imgR):
 
 
 if __name__ == '__main__':
-    # Args handling -> check help parameters to understand
-    parser = argparse.ArgumentParser(description='Camera calibration')
-    parser.add_argument('--calibration_file', type=str, required=True, help='Path to the stereo calibration file')
-    parser.add_argument('--left_source', type=str, required=True, help='Left video or v4l2 device name')
-    parser.add_argument('--right_source', type=str, required=True, help='Right video or v4l2 device name')
-    parser.add_argument('--is_real_time', type=int, required=True, help='Is it camera stream or video')
-
-    args = parser.parse_args()
 
     # is camera stream or video
-    if args.is_real_time:
-        cap_left = cv2.VideoCapture(args.left_source, cv2.CAP_V4L2)
-        cap_right = cv2.VideoCapture(args.right_source, cv2.CAP_V4L2)
-    else:
-        cap_left = cv2.VideoCapture(args.left_source)
-        cap_right = cv2.VideoCapture(args.right_source)
+    cap_left = cv2.VideoCapture("left.mp4")
+    cap_right = cv2.VideoCapture("right.mp4")
 
-    K1, D1, K2, D2, R, T, E, F, R1, R2, P1, P2, Q = load_stereo_coefficients(args.calibration_file)  # Get cams params
+    K1, D1, K2, D2, R, T, E, F, R1, R2, P1, P2, Q = load_stereo_coefficients("stereo_cam.yml")  # Get cams params
 
     if not cap_left.isOpened() and not cap_right.isOpened():  # If we can't get images from both sources, error
         print("Can't opened the streams!")
@@ -77,6 +65,9 @@ if __name__ == '__main__':
 
     cap_left.set(cv2.CAP_PROP_FRAME_WIDTH, 640)  # float
     cap_left.set(cv2.CAP_PROP_FRAME_HEIGHT, 480)  # float
+
+    fourcc = cv2.VideoWriter_fourcc(*'mp4v')
+    videoWriter = cv2.VideoWriter('./disparity.mp4', fourcc, 30.0, (640, 480))
 
     while True:  # Loop until 'q' pressed or stream ends
         # Grab&retreive for sync images
@@ -100,6 +91,7 @@ if __name__ == '__main__':
 
         disparity_image = depth_map(gray_left, gray_right)  # Get the disparity map
 
+        videoWriter.write(cv2.resize(cv2.cvtColor(disparity_image, cv2.COLOR_GRAY2BGR), (640, 480)))
         # Show the images
         cv2.imshow('left(R)', leftFrame)
         cv2.imshow('right(R)', rightFrame)
@@ -111,4 +103,5 @@ if __name__ == '__main__':
     # Release the sources.
     cap_left.release()
     cap_right.release()
+    videoWriter.release()
     cv2.destroyAllWindows()

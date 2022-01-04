@@ -27,7 +27,7 @@ P1 = cv_file.getNode("P1").mat()
 P2 = cv_file.getNode("P2").mat()
 Q = cv_file.getNode("Q").mat()
 
-# R1, R2, P1, P2, Q, roi1, roi2 = cv2.stereoRectify(cameraMatrix1=K1, distCoeffs1=D1, cameraMatrix2=K2, distCoeffs2=D2, imageSize=size, R=R, T=T, flags=cv2.CALIB_ZERO_DISPARITY, alpha=-1)
+# R1, R2, P1, P2, Q, roi1, roi2 = cv2.stereoRectify(cameraMatrix1=K1, distCoeffs1=D1, cameraMatrix2=K2, distCoeffs2=D2, imageSize=size, R=R, T=T, flags=cv2.CALIB_ZERO_DISPARITY, alpha=0.9)
 
 leftMapX, leftMapY = cv2.initUndistortRectifyMap(K1, D1, R1, P1, size, cv2.CV_32FC1)
 left_rectified = cv2.remap(imgL, leftMapX, leftMapY, cv2.INTER_LINEAR, cv2.BORDER_CONSTANT)

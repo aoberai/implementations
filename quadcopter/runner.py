@@ -16,7 +16,7 @@ run = True
 
 def Single_Point2Point():
     # Set goals to go to
-    GOALS = [(1, 1, 2), (0, 0, 0), (15, 15, 15), (-1, -1, 2), (-1, 1, 4)]
+    GOALS = [(1, 1, 2), (1, -1, 0.2), (2, 2, 0), (-1, -1, 2), (-1, 1, 4)]
     YAWS = [0, 3.14, -1.54, 1.54]
     # Define the quadcopters
     QUADCOPTER = {
@@ -28,7 +28,7 @@ def Single_Point2Point():
     # Controller parameters
     CONTROLLER_PARAMETERS = {
         'Motor_limits': [
-            4000,
+            0,
             9000],
         'Tilt_limits': [
             -10,

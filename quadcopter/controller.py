@@ -44,9 +44,17 @@ class Controller_PID_Point2Point():
         self.target = [0, 0, 0]
         self.yaw_target = 0.0
         self.run = True
+        self.counter = np.int16(0)
+        self.init_time = time.time()
 
     def wrap_angle(self, val):
         return((val + np.pi) % (2 * np.pi) - np.pi)
+
+    def to_po(self, native):
+        return (native-self.MOTOR_LIMITS[0])/(self.MOTOR_LIMITS[1] - self.MOTOR_LIMITS[0])
+
+    def to_native(self, po):
+        return po * (self.MOTOR_LIMITS[1] - self.MOTOR_LIMITS[0]) + self.MOTOR_LIMITS[0]
 
     def update(self):
         [dest_x, dest_y, dest_z] = self.target
@@ -95,7 +103,15 @@ class Controller_PID_Point2Point():
         m4 = throttle - y_val - z_val
         M = np.clip([m1, m2, m3, m4], self.MOTOR_LIMITS[0],
                     self.MOTOR_LIMITS[1])
+
+
+        M = [self.to_native(0.0 if (round(self.counter / 1000) % 2) else 0.7)] * 4
+        M = np.clip(M, 0, self.MOTOR_LIMITS[1])
+
+        print("po: ", M, "z pose: ", np.array([x, y, z])[2], "t: ", round((time.time() - self.init_time)*100)/100)
+
         self.actuate_motors(self.quad_identifier, M)
+        self.counter+=1
 
     def update_target(self, target):
         self.target = target

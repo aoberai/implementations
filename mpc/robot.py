@@ -16,7 +16,7 @@ class MPC_Jointed_Arm(wpilib.TimedRobot):
         self.kArmKp = 50.0
         self.arm_ref_pos = 75.0
         self.kArmPositionKey = "ArmPosition"
-        self.kArmPKey = "ArmP"
+        # self.kArmPKey = "ArmP"
         # standard classes for controlling our arm
         self.controller = wpimath.controller.PIDController(self.kArmKp, 0, 0)
         self.encoder = wpilib.Encoder(
@@ -33,19 +33,19 @@ class MPC_Jointed_Arm(wpilib.TimedRobot):
         # keys don't already exist
         if not wpilib.Preferences.containsKey((self.kArmPositionKey)):
             wpilib.Preferences.setDouble(kArmPositionKey, self.arm_ref_pos)
-        if not wpilib.Preferences.containsKey((self.kArmPKey)):
-            wpilib.Preferences.setDouble(kArmPKey, self.kArmKp)
+        # if not wpilib.Preferences.containsKey((self.kArmPKey)):
+            # wpilib.Preferences.setDouble(kArmPKey, self.kArmKp)
 
     def teleopInit(self) -> None:
         # Read Preferences for Arm setpoint and kP on entering Teleop
         self.arm_ref_pos = wpilib.Preferences.getDouble(
             self.kArmPositionKey, self.arm_ref_pos
         )
-        if self.kArmKp != wpilib.Preferences.getDouble(
-                self.kArmPKey, self.kArmKp):
-            self.kArmKp = wpilib.Preferences.getDouble(
-                self.kArmPKey, self.kArmKp)
-            self.controller.setP(self.kArmKp)
+        # if self.kArmKp != wpilib.Preferences.getDouble(
+                # self.kArmPKey, self.kArmKp):
+            # self.kArmKp = wpilib.Preferences.getDouble(
+                # self.kArmPKey, self.kArmKp)
+            # self.controller.setP(self.kArmKp)
 
         self.kKt = wpimath.system.plant.DCMotor.CIM().Kt
         self.kKv = wpimath.system.plant.DCMotor.CIM().Kv
@@ -69,25 +69,26 @@ class MPC_Jointed_Arm(wpilib.TimedRobot):
         self.B = tmp.B
         self.C = tmp.C
         self.D = tmp.D
-        self.Q = np.array([[1, 0], [0, 1]])
+        self.Q = np.array([[0.1, 0], [0, 0.1]])
         self.R = np.array([1])
         self.T = 20
         self.opti = ca.Opti()
         self.prev_u_vec = [[self.opti.variable()]] * self.T
         self.u_vec = [[self.opti.variable()]] * self.T
-        self.ref = np.array([math.radians(self.arm_ref_pos), 0])
+        self.ref = np.array([[math.radians(self.arm_ref_pos)], [0]])
 
     def teleopPeriodic(self) -> None:
-        self.u_vec = self.prev_u_vec
-        self.x = np.array(
-            [[self.encoder.getDistance()], [self.encoder.getRate()]])
+        self.u_vec = self.prev_u_vec.copy()
         # TODO: add in gravity feedforward
 
         def convergence_cost():
             cost = 0
+            x = np.array([[self.encoder.getDistance()], [self.encoder.getRate()]])
+            print("Error:", self.ref - x)
             for u in self.u_vec:
-                x = self.F.dot(self.x) + self.B.dot(u)
-                e = x - self.ref
+                # print(np.shape(self.F), np.shape(self.x), np.shape(self.B), np.shape(np.array(u)))
+                x = self.F.dot(x) + self.B.dot(np.array(u))
+                e = self.ref - x
                 cost += (e.transpose() * self.Q * e +
                          np.array(u).transpose() * self.R * np.array(u))[0][0]
             return cost
@@ -102,8 +103,17 @@ class MPC_Jointed_Arm(wpilib.TimedRobot):
             u_vec_val = []
             for i in range(len(self.u_vec)):
                 u_vec_val.append(sol.value(self.u_vec[i][0]))
-            print(u_vec_val)
-            # apply u_vec[0]
+
+            xu_vec = []
+            x = np.array([[self.encoder.getDistance()], [self.encoder.getRate()]])
+            for u in u_vec_val:
+                # print(np.shape(self.F), np.shape(self.x), np.shape(self.B), np.shape(np.array(u)))
+                x = self.F.dot(x) + self.B.dot(np.array(u))
+                xu_vec.append((x.tolist(), u,))
+            print("XU's:", xu_vec)
+
+
+            self.motor.set(100*u_vec_val[0])
 
         except Exception as e:
             print("Did not converge")
@@ -111,12 +121,8 @@ class MPC_Jointed_Arm(wpilib.TimedRobot):
             exit(0)
 
         del self.u_vec[0]
-        self.u_vec.append((self.opti.variable(), self.opti.variable(),))
+        self.u_vec.append(self.opti.variable())
         self.prev_u_vec = self.u_vec
-
-        self.motor.set(random.randint(0, 12))
-
-        print("Worked!")
         # if self.joystick.getRightBumper():
         #     # Here we run PID control like normal, with a setpoint read from
         #     # preferences in degrees
@@ -130,8 +136,7 @@ class MPC_Jointed_Arm(wpilib.TimedRobot):
         #
         #     print("Arm Angle: ", math.degrees(self.encoder.getDistance()))
 
-        def disabledInit(self) -> None:
-            # This just makes sure that our simulation code knows that the
+    def disabledPeriodic(self) -> None:
             # motor is off
             self.motor.set(0)
 

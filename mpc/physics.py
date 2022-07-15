@@ -29,34 +29,34 @@ class PhysicsEngine:
 
         # The arm gearbox represents a gearbox containing two Vex 775pro
         # motors.
-        self.armGearbox = wpimath.system.plant.DCMotor.vex775Pro(1)
+        self.arm_gearbox = wpimath.system.plant.DCMotor.vex775Pro(1)
 
         # Simulation classes help us simulate what's going on, including gravity.
         # This sim represents an arm with 1 775s, a 600:1 reduction, a mass of 5kg,
         # 30in overall arm length, range of motion in [-75, 255] degrees, and noise
         # with a standard deviation of 1 encoder tick.
-        self.armSim = wpilib.simulation.SingleJointedArmSim(
-            self.armGearbox,
-            600.0,
+        self.arm_sim = wpilib.simulation.SingleJointedArmSim(
+            self.arm_gearbox,
+            1200.0,
             wpilib.simulation.SingleJointedArmSim.estimateMOI(0.762, 5),
             0.762,
-            math.radians(-75),
+            math.radians(-90),
             math.radians(255),
             5,
             True,
             [robot.kArmEncoderDistPerPulse],
         )
-        self.encoderSim = wpilib.simulation.EncoderSim(robot.encoder)
-        self.motorSim = wpilib.simulation.PWMSim(robot.motor.getChannel())
+        self.encoder_sim = wpilib.simulation.EncoderSim(robot.encoder)
+        self.motor_sim = wpilib.simulation.PWMSim(robot.motor.getChannel())
 
         # Create a Mechanism2d display of an Arm
         self.mech2d = wpilib.Mechanism2d(60, 60)
-        self.armBase = self.mech2d.getRoot("ArmBase", 30, 30)
-        self.armTower = self.armBase.appendLigament(
+        self.arm_base = self.mech2d.getRoot("ArmBase", 30, 30)
+        self.arm_tower = self.arm_base.appendLigament(
             "Arm Tower", 30, -90, 6, wpilib.Color8Bit(wpilib.Color.kBlue)
         )
-        self.arm = self.armBase.appendLigament(
-            "Arm", 30, self.armSim.getAngle(), 6, wpilib.Color8Bit(
+        self.arm = self.arm_base.appendLigament(
+            "Arm", 30, self.arm_sim.getAngle(), 6, wpilib.Color8Bit(
                 wpilib.Color.kYellow))
 
         # Put Mechanism to SmartDashboard
@@ -73,17 +73,17 @@ class PhysicsEngine:
         """
 
         # First, we set our "inputs" (voltages)
-        self.armSim.setInput(
+        self.arm_sim.setInput(
             0,
-            self.motorSim.getSpeed() *
+            self.motor_sim.getSpeed() *
             wpilib.RobotController.getInputVoltage())
 
         # Next, we update it
-        self.armSim.update(tm_diff)
+        self.arm_sim.update(tm_diff)
 
         # Finally, we set our simulated encoder's readings and simulated battery
         # voltage
-        self.encoderSim.setDistance(self.armSim.getAngle())
+        self.encoder_sim.setDistance(self.arm_sim.getAngle())
         # SimBattery estimates loaded battery voltage
         # wpilib.simulation.RoboRioSim.setVInVoltage(
         #     wpilib.simulation.BatterySim
@@ -91,4 +91,4 @@ class PhysicsEngine:
 
         # Update the mechanism arm angle based on the simulated arm angle
         # -> setAngle takes degrees, getAngle returns radians... >_>
-        self.arm.setAngle(math.degrees(self.armSim.getAngle()))
+        self.arm.setAngle(math.degrees(self.arm_sim.getAngle()))

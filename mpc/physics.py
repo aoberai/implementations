@@ -27,11 +27,12 @@ class PhysicsEngine:
 
         self.physics_controller = physics_controller
 
-        # The arm gearbox represents a gearbox containing two Vex 775pro motors.
-        self.armGearbox = wpimath.system.plant.DCMotor.vex775Pro(2)
+        # The arm gearbox represents a gearbox containing two Vex 775pro
+        # motors.
+        self.armGearbox = wpimath.system.plant.DCMotor.vex775Pro(1)
 
         # Simulation classes help us simulate what's going on, including gravity.
-        # This sim represents an arm with 2 775s, a 600:1 reduction, a mass of 5kg,
+        # This sim represents an arm with 1 775s, a 600:1 reduction, a mass of 5kg,
         # 30in overall arm length, range of motion in [-75, 255] degrees, and noise
         # with a standard deviation of 1 encoder tick.
         self.armSim = wpilib.simulation.SingleJointedArmSim(
@@ -55,8 +56,8 @@ class PhysicsEngine:
             "Arm Tower", 30, -90, 6, wpilib.Color8Bit(wpilib.Color.kBlue)
         )
         self.arm = self.armBase.appendLigament(
-            "Arm", 30, self.armSim.getAngle(), 6, wpilib.Color8Bit(wpilib.Color.kYellow)
-        )
+            "Arm", 30, self.armSim.getAngle(), 6, wpilib.Color8Bit(
+                wpilib.Color.kYellow))
 
         # Put Mechanism to SmartDashboard
         wpilib.SmartDashboard.putData("Arm Sim", self.mech2d)
@@ -73,8 +74,9 @@ class PhysicsEngine:
 
         # First, we set our "inputs" (voltages)
         self.armSim.setInput(
-            0, self.motorSim.getSpeed() * wpilib.RobotController.getInputVoltage()
-        )
+            0,
+            self.motorSim.getSpeed() *
+            wpilib.RobotController.getInputVoltage())
 
         # Next, we update it
         self.armSim.update(tm_diff)

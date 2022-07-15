@@ -30,7 +30,8 @@ class MPC_Jointed_Arm(wpilib.TimedRobot):
         self.kG = 1200
         self.kL = 0.762
         self.kM = 5
-        self.kJ = wpilib.simulation.SingleJointedArmSim.estimateMOI(self.kL, self.kM)
+        self.kJ = wpilib.simulation.SingleJointedArmSim.estimateMOI(
+            self.kL, self.kM)
         print(self.kKt, self.kKv, self.kR, self.kJ)
         self.kGr = 9.81
         self.F_cnt = np.array(
@@ -59,20 +60,21 @@ class MPC_Jointed_Arm(wpilib.TimedRobot):
         for i in range(self.T):
             self.prev_u_vec.append(self.opti.variable())
             self.u_vec.append(self.opti.variable())
-        self.ref = np.array([[math.radians(180)], [0]])
+        self.ref = np.array([[math.radians(0)], [0]])
 
     def teleopPeriodic(self) -> None:
         self.u_vec = self.prev_u_vec.copy()
-        # TODO: add in gravity feedforward
 
         def convergence_cost():
             cost = 0
-            x = np.array([[self.encoder.getDistance()], [self.encoder.getRate()]])
+            x = np.array([[self.encoder.getDistance()],
+                         [self.encoder.getRate()]])
             print("Error:", self.C.dot(self.ref) - self.C.dot(x))
             for u in self.u_vec:
-                # grav_ff = self.kL * self.R * self.kM * self.kGr * math.cos(self.encoder.getDistance())/ (2 * self.kG * self.kKt)
+                grav_ff = self.kL * self.R * self.kM * self.kGr * math.cos(self.encoder.getDistance()) / (
+                    2 * self.kG * self.kKt)  # TODO: factor in new x angle predic to make feedforward acc
                 # print("Grav_ff: ", grav_ff)
-                x = self.F.dot(x) + self.B.dot(np.array([u]))
+                x = self.F.dot(x) + self.B.dot(np.array([u - grav_ff]))
                 e = self.ref - x
                 cost += (e.transpose() * self.Q * e +
                          np.array(u).transpose() * self.R * np.array(u))[0][0]
@@ -87,18 +89,17 @@ class MPC_Jointed_Arm(wpilib.TimedRobot):
             sol = self.opti.solve()
             u_vec_val = []
             for i in range(len(self.u_vec)):
+
                 u_vec_val.append(sol.value(self.u_vec[i][0]))
 
             xu_vec = []
-            x = np.array([[self.encoder.getDistance()], [self.encoder.getRate()]])
+            x = np.array([[self.encoder.getDistance()],
+                         [self.encoder.getRate()]])
             for u in u_vec_val:
-                # print(np.shape(self.F), np.shape(self.x), np.shape(self.B), np.shape(np.array(u)))
                 x = self.F.dot(x) + self.B.dot(np.array(u))
                 xu_vec.append((x.tolist(), u,))
             print("XU's:", xu_vec)
-            # grav_ff = self.kL * self.R * self.kM * self.kGr * math.cos(self.encoder.getDistance())/ (2 * self.kG * self.kKt)
             self.motor.set(u_vec_val[0])
-            # self.motor.set(grav_ff)
 
         except Exception as e:
             print("Did not converge")
@@ -109,9 +110,15 @@ class MPC_Jointed_Arm(wpilib.TimedRobot):
         self.u_vec.append(self.opti.variable())
         self.prev_u_vec = self.u_vec
 
+    def testPeriodic(self) -> None:
+        if int(time.time() / 8) % 2:
+            self.motor.set(-6)
+        else:
+            self.motor.set(6)
+
     def disabledPeriodic(self) -> None:
-            # motor is off
-            self.motor.set(0)
+        # motor is off
+        self.motor.set(0)
 
 
 if __name__ == "__main__":

@@ -73,14 +73,15 @@ class MPC_Jointed_Arm(wpilib.TimedRobot):
         self.R = np.array([1])
         self.T = 20
         self.opti = ca.Opti()
-        self.prev_u_vec = np.array([[self.opti.variable()]] * self.T)
-        self.u_vec = self.prev_u_vec.copy()
+        self.prev_u_vec = [[self.opti.variable()]] * self.T
+        self.u_vec = [[self.opti.variable()]] * self.T
         self.ref = np.array([math.radians(self.arm_ref_pos), 0])
 
     def teleopPeriodic(self) -> None:
         self.u_vec = self.prev_u_vec
         self.x = np.array(
             [[self.encoder.getDistance()], [self.encoder.getRate()]])
+        # TODO: add in gravity feedforward
 
         def convergence_cost():
             cost = 0
@@ -88,8 +89,7 @@ class MPC_Jointed_Arm(wpilib.TimedRobot):
                 x = self.F.dot(self.x) + self.B.dot(u)
                 e = x - self.ref
                 cost += (e.transpose() * self.Q * e +
-                         u.transpose() * self.R * u)
-            print(cost)
+                         np.array(u).transpose() * self.R * np.array(u))[0][0]
             return cost
 
         self.opti.minimize(convergence_cost())
@@ -98,21 +98,25 @@ class MPC_Jointed_Arm(wpilib.TimedRobot):
         self.opti.solver("ipopt", p_opts, s_opts)
 
         try:
-            u_vec = self.opti.solve()
+            sol = self.opti.solve()
+            u_vec_val = []
+            for i in range(len(self.u_vec)):
+                u_vec_val.append(sol.value(self.u_vec[i][0]))
+            print(u_vec_val)
             # apply u_vec[0]
 
         except Exception as e:
             print("Did not converge")
+            print(e)
             exit(0)
 
-        del u_vec[0]
-        u_vec.append((self.opti.variable(), self.opti.variable(),))
-        prev_u_vec = u_vec
+        del self.u_vec[0]
+        self.u_vec.append((self.opti.variable(), self.opti.variable(),))
+        self.prev_u_vec = self.u_vec
 
         self.motor.set(random.randint(0, 12))
 
         print("Worked!")
-        exit(0)
         # if self.joystick.getRightBumper():
         #     # Here we run PID control like normal, with a setpoint read from
         #     # preferences in degrees

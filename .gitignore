@@ -13,3 +13,5 @@ logs/
 README.md
 tmp/
 hidden
+mpc/*.json
+*.ini

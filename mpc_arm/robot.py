@@ -71,8 +71,9 @@ class MPC_Jointed_Arm(wpilib.TimedRobot):
                          [self.encoder.getRate()]])
             print("Error:", self.C.dot(self.ref) - self.C.dot(x))
             for u in self.u_vec:
-                grav_ff = self.kL * self.R * self.kM * self.kGr * math.cos(self.encoder.getDistance()) / (
+                grav_ff = self.kL * self.kR * self.kM * self.kGr * math.cos(self.encoder.getDistance()) / (
                     2 * self.kG * self.kKt)  # TODO: factor in new x angle predic to make feedforward acc
+                grav_ff = 0
                 # print("Grav_ff: ", grav_ff)
                 x = self.F.dot(x) + self.B.dot(np.array([u - grav_ff]))
                 e = self.ref - x
@@ -110,6 +111,14 @@ class MPC_Jointed_Arm(wpilib.TimedRobot):
         self.u_vec.append(self.opti.variable())
         self.prev_u_vec = self.u_vec
 
+    def autonomousPeriodic(self) -> None:
+        # New Attempt
+        grav_ff = self.kL * self.kR * self.kM * self.kGr * math.cos(self.encoder.getDistance()) / (
+            2 * self.kG * self.kKt)
+        # TODO: why this no correct
+        # print(math.cos(self.encoder.getDistance()))
+
+        self.motor.set(grav_ff)
     def testPeriodic(self) -> None:
         if int(time.time() / 8) % 2:
             self.motor.set(-6)

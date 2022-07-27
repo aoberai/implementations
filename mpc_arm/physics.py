@@ -32,7 +32,7 @@ class PhysicsEngine:
         self.arm_gearbox = wpimath.system.plant.DCMotor.vex775Pro(1)
 
         # Simulation classes help us simulate what's going on, including gravity.
-        # This sim represents an arm with 1 775s, a 600:1 reduction, a mass of 5kg,
+        # This sim represents an arm with 1 775s, a 1200:1 reduction, a mass of 5kg,
         # 30in overall arm length, range of motion in [-75, 255] degrees, and noise
         # with a standard deviation of 1 encoder tick.
         self.arm_sim = wpilib.simulation.SingleJointedArmSim(

@@ -1,11 +1,4 @@
-# Read: https://towardsdatascience.com/monte-carlo-tree-search-an-introduction-503d8c04e168
-
-# Based on: https://www.baeldung.com/java-monte-carlo-tree-search
-
-from tictactoe import Board
-import random
-
-board = Board(dimensions=(3, 3), x_in_a_row=3)
+# based around Alg4DM book
 
 '''
 Need to build out tree
@@ -60,27 +53,84 @@ In 2 opponent game, assume opponent makes random move?
 
 
 '''
-
-
+from tictactoe import Board
+import numpy as np
+import random
+import copy
+import math
+import time
 
 class Node:
-    def __init__(self, rep="", parent=None):
+    def __init__(self, rep, parent=None, move=None):
         self.parent = parent
         self.children = []
-        self.N = 0 # number of visits
+        self.N = 0.01 # number of visits
         self.W = 0 # number of wins
-        self.str = rep
+        self.Q = 0 # mean value of node
+        self.board = rep
+        self.move = move
 
     def __str__(self):
-        return self.str
+        return str(self.board)
+
+board = Board(dimensions=(3, 3), x_in_a_row=3)
+c=0.2 # exploration parameter
+
+while board.result() == None: # while game not finished
+    rollout_count = 0
+    board.push(random.choice([move for move in board.possible_moves()])) # player move
+
+    curr = Node(rep=board, parent=None)
+    children = []
+
+    for move in board.possible_moves():
+        new_board = copy.deepcopy(board)
+        new_board.push(move)
+        children.append(Node(rep=new_board, parent=curr, move=move))
+
+    timestamp = time.time()
+
+    while time.time() - timestamp < 5: # 5 seconds for computer to make move
+        print((math.log(curr.N)))
+        UCB_heuristics = [child.Q + c * math.sqrt(math.log(curr.N) / child.N) for child in children] # Q(s, a) + c * sqrt ( log N(s) / N(s, a) )
+
+        # Run a rollout
+        selected_child = children[np.argmax(UCB_heuristics)]
+        rollout_board = selected_child.board
+        while rollout_board.result() == None: # while game not finished
+            rollout_board.push(random.choice([move for move in rollout_board.possible_moves()])) # opponent move
+            rollout_board.push(random.choice([move for move in rollout_board.possible_moves()])) # agent move
+
+        # [win, lose, draw] -> reward of [1, -1, 0]
+        reward = {1:1, 2:-1, 0:0}[rollout_board.result()]
+        # selected_child.Q += selected_child.Q * selected_child.N / (selected_child.N + 1) + reward / (selected_child.N + 1)
+        selected_child.Q += (reward - selected_child.Q) / selected_child.N
+        # (1 + 2 + 3) / 3 + 4 / 4
+
+        rollout_count += 1
+        print("%d rollouts performed" % rollout_count)
+
+    # computer makes move with best child node evaluation
+    move = children[np.argmax([child.Q for child in children])].move
+    board.push(move)
+    print(board)
+    print("\n"*3 + "-"*10 + "\n"*3)
 
 
-def UCB_heuristic(node):
-    pass
 
-# TODO: evaluation function on node
 
-head = Node(rep=str(board), parent=None)
+
+
+
+
+
+
+
+
+
+
+
+'''
 
 last_node = head
 while board.result() == None: # while game not finished
@@ -108,3 +158,5 @@ elif board.result() == 2:
     print("O Won")
 elif board.result() == 0:
     print("Draw")
+
+'''

@@ -1,1 +1,1 @@
-I understand how it works, will return to this once I spend some time figuring out how to derive the partial derivatives of set of functions which are averaged and other similar operations I have not yet learnt and refuse to google.
+will revisit

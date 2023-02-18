@@ -53,6 +53,9 @@ In 2 opponent game, assume opponent makes random move?
 
 
 '''
+
+# TODO: run tests and find possible bugs 
+
 from tictactoe import Board
 import numpy as np
 import random
@@ -64,8 +67,7 @@ class Node:
     def __init__(self, rep, parent=None, move=None):
         self.parent = parent
         self.children = []
-        self.N = 0.01 # number of visits
-        self.W = 0 # number of wins
+        self.N = 0.00001 # number of visits
         self.Q = 0 # mean value of node
         self.board = rep
         self.move = move
@@ -73,62 +75,71 @@ class Node:
     def __str__(self):
         return str(self.board)
 
-board = Board(dimensions=(3, 3), x_in_a_row=3)
-c=0.2 # exploration parameter
 
-while board.result() == None: # while game not finished
-    rollout_count = 0
-    board.push(random.choice([move for move in board.possible_moves()])) # player move
+agent_wins = 0
+for j in range(500):
+    board = Board(dimensions=(3, 3), x_in_a_row=3)
+    c=10 # exploration parameter
 
-    curr = Node(rep=board, parent=None)
-    children = []
+    while board.result() == None: # while game not finished
+        rollout_count = 0
+        board.push(random.choice([move for move in board.possible_moves()])) # player move (X)
+        if board.result() != None: break
+        # print("Player move: \n", board)
 
-    for move in board.possible_moves():
-        new_board = copy.deepcopy(board)
-        new_board.push(move)
-        children.append(Node(rep=new_board, parent=curr, move=move))
+        curr = Node(rep=board, parent=None)
+        curr.N += 1
+        children = []
 
-    timestamp = time.time()
+        for move in board.possible_moves():
+            new_board = copy.deepcopy(board)
+            new_board.push(move)
+            children.append(Node(rep=new_board, parent=curr, move=move))
 
-    while time.time() - timestamp < 5: # 5 seconds for computer to make move
-        print((math.log(curr.N)))
-        UCB_heuristics = [child.Q + c * math.sqrt(math.log(curr.N) / child.N) for child in children] # Q(s, a) + c * sqrt ( log N(s) / N(s, a) )
+        timestamp = time.time()
 
-        # Run a rollout
-        selected_child = children[np.argmax(UCB_heuristics)]
-        rollout_board = selected_child.board
-        while rollout_board.result() == None: # while game not finished
-            rollout_board.push(random.choice([move for move in rollout_board.possible_moves()])) # opponent move
-            rollout_board.push(random.choice([move for move in rollout_board.possible_moves()])) # agent move
+        while time.time() - timestamp < 0.1: # x seconds for computer to make move
+            UCB_heuristics = [child.Q + c * math.sqrt(math.log(curr.N) / child.N) for child in children] # Q(s, a) + c * sqrt ( log N(s) / N(s, a) )
 
-        # [win, lose, draw] -> reward of [1, -1, 0]
-        reward = {1:1, 2:-1, 0:0}[rollout_board.result()]
-        # selected_child.Q += selected_child.Q * selected_child.N / (selected_child.N + 1) + reward / (selected_child.N + 1)
-        selected_child.Q += (reward - selected_child.Q) / selected_child.N
-        # (1 + 2 + 3) / 3 + 4 / 4
+            # Run a rollout
+            selected_child = children[np.argmax(UCB_heuristics)]
+            selected_child.N += 1
+            rollout_board = selected_child.board
+            while rollout_board.result() == None: # while game not finished
+                for i in range(2): # first opponent move, then agent move
+                    if rollout_board.result() == None:
+                        rollout_board.push(random.choice([move for move in rollout_board.possible_moves()]))
+                # print(rollout_board)
 
-        rollout_count += 1
-        print("%d rollouts performed" % rollout_count)
+            # [win, lose, draw] -> reward of [1, -1, 0]
+            reward = {1:-1, 2:1, 0:0}[rollout_board.result()]
+            # selected_child.Q += selected_child.Q * selected_child.N / (selected_child.N + 1) + reward / (selected_child.N + 1)
+            selected_child.Q += (reward - selected_child.Q) / selected_child.N
+            # (1 + 2 + 3) / 3 + 4 / 4
 
-    # computer makes move with best child node evaluation
-    move = children[np.argmax([child.Q for child in children])].move
-    board.push(move)
-    print(board)
-    print("\n"*3 + "-"*10 + "\n"*3)
+            rollout_count += 1
+        # print("%d rollouts performed" % rollout_count)
 
-
-
-
-
-
-
-
-
-
+        # computer makes move with best child node evaluation
+        move = children[np.argmax([child.Q for child in children])].move
+        board.push(move)
+        # print(board)
+        # print("\n"*3 + "-"*10 + "\n"*3)
 
 
+    if board.result() == 1:
+        # print("X Won") # alternate: has_x_won = board.has_won(tictactoe.X)
+        agent_wins -= 1
+    elif board.result() == 2:
+        # print("O Won")
+        agent_wins += 1
+    elif board.result() == 0:
+        # print("Draw")
+        agent_wins -= 0.2
 
+    # print("\n\n\n", board)
 
+    print("Games Played: ", j, "; Win Differential: ", agent_wins)
 
 '''
 

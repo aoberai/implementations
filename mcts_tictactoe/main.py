@@ -1,7 +1,7 @@
 # based around Alg4DM book
 
 '''
-Not a perfect MCTS
+Not a perfect MCTS, just a notepad for vtol surveyor planner. this first version has a couple big bugs, fixed in other file
 
 
 
@@ -70,7 +70,7 @@ class Node:
     def __init__(self, rep, parent=None, move=None):
         self.parent = parent
         self.children = []
-        self.N = 0.00001 # number of visits
+        self.N = 0.0 # number of visits
         self.Q = 0 # mean value of node
         self.board = rep
         self.move = move
@@ -82,7 +82,7 @@ class Node:
 agent_wins = 0
 for j in range(500):
     board = Board(dimensions=(3, 3), x_in_a_row=3)
-    c=10 # exploration parameter
+    c=2 * 2**0.5 # exploration parameter
 
     while board.result() == None: # while game not finished
         rollout_count = 0
@@ -91,7 +91,6 @@ for j in range(500):
         # print("Player move: \n", board)
 
         curr = Node(rep=board, parent=None)
-        curr.N += 1
 
         for move in board.possible_moves():
             new_board = copy.deepcopy(board)
@@ -100,13 +99,14 @@ for j in range(500):
 
         timestamp = time.time()
 
-        while time.time() - timestamp < 0.1: # x seconds for computer to make move
-            UCB_heuristics = [child.Q + c * math.sqrt(math.log(curr.N) / child.N) for child in curr.children] # Q(s, a) + c * sqrt ( log N(s) / N(s, a) )
+        while time.time() - timestamp < 0.2: # x seconds for computer to make move
 
+            curr.N += 1
+            UCB_heuristics = [child.Q + (1e+12 if child.N == 0 else c * math.sqrt(math.log(curr.N) / child.N)) for child in curr.children] # Q(s, a) + c * sqrt ( log N(s) / N(s, a) )
             # Run a rollout
             selected_child = curr.children[np.argmax(UCB_heuristics)]
             selected_child.N += 1
-            rollout_board = selected_child.board
+            rollout_board = copy.deepcopy(selected_child.board)
             while rollout_board.result() == None: # while game not finished
                 for i in range(2): # first opponent move, then agent move
                     if rollout_board.result() == None:

@@ -1,6 +1,10 @@
 # based around Alg4DM book
 
 '''
+Not a perfect MCTS
+
+
+
 Need to build out tree
 
 Each tree has n number of nodes
@@ -8,7 +12,6 @@ Each tree has n number of nodes
 Each node has one parent
 
 Each node has visit iterations and number of wins
-
 Notes from Alg4Dm:
 
 Avoids exponential complexity via running m sims from current state
@@ -89,20 +92,19 @@ for j in range(500):
 
         curr = Node(rep=board, parent=None)
         curr.N += 1
-        children = []
 
         for move in board.possible_moves():
             new_board = copy.deepcopy(board)
             new_board.push(move)
-            children.append(Node(rep=new_board, parent=curr, move=move))
+            curr.children.append(Node(rep=new_board, parent=curr, move=move))
 
         timestamp = time.time()
 
         while time.time() - timestamp < 0.1: # x seconds for computer to make move
-            UCB_heuristics = [child.Q + c * math.sqrt(math.log(curr.N) / child.N) for child in children] # Q(s, a) + c * sqrt ( log N(s) / N(s, a) )
+            UCB_heuristics = [child.Q + c * math.sqrt(math.log(curr.N) / child.N) for child in curr.children] # Q(s, a) + c * sqrt ( log N(s) / N(s, a) )
 
             # Run a rollout
-            selected_child = children[np.argmax(UCB_heuristics)]
+            selected_child = curr.children[np.argmax(UCB_heuristics)]
             selected_child.N += 1
             rollout_board = selected_child.board
             while rollout_board.result() == None: # while game not finished
@@ -120,8 +122,7 @@ for j in range(500):
             rollout_count += 1
         # print("%d rollouts performed" % rollout_count)
 
-        # computer makes move with best child node evaluation
-        move = children[np.argmax([child.Q for child in children])].move
+        move = curr.children[np.argmax([child.Q for child in curr.children])].move
         board.push(move)
         # print(board)
         # print("\n"*3 + "-"*10 + "\n"*3)

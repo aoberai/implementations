@@ -52,9 +52,7 @@ The argument of number of transactions per block is the block size debate?
 
 The reason proof of work ensures validity is because it gives order to blocks. Fake blocks can't be added anyways because you have to regenerate a whole new chain which means new hashes and your whole things diverges.
 
-
-
-
+Okay this makes sense cool algorithm
 
 Other big questions:
 

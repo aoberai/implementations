@@ -1,4 +1,9 @@
 '''
+
+This was my first time figuring out blockchain stuff a while ago, there might be mistakes. Mostly trying to see if the space is actually dead or not.
+
+
+
 I know very little about how blockchains work as of mid 2023 so here are some notes as I learn shit. 
 
 Sk = private key = secret key
@@ -36,7 +41,7 @@ Listen to transactions, collect them into a block, know previous block hash to i
 
 Two conflicting block chains with differing transactions, take the longest chain (the one which has the most work put into it)
 
-If you add a incorrect block to one chain (she finds proof of work before everyone else), it still wont necessarily be trusted since there can be a branching factor where one block has two children and those children grow and the real chain, supported by a majority of the compute, grows longer because it has more compute available to grow the chain and find proof of work many times faster. The longest chain is the trusted one. 
+If you add a incorrect block to one chain (someone finds proof of work before everyone else), it still wont necessarily be trusted since there can be a branching factor where one block has two children and those children grow and the real chain, supported by a majority of the compute, grows longer because it has more compute available to grow the chain and find proof of work many times faster. The longest chain is the trusted one. 
 
 Different block time for a group of miners to find hash. Bitcoin aims for 1 every 10 minutes
 
@@ -56,10 +61,9 @@ Okay this makes sense cool algorithm
 
 Other big questions:
 
-Where do smart contracts run and how are they guaranteed?
-How do you peg to the dollar like in USDC or peg to prices of gold?
-Distributed compute for other applications?
-
+Where do smart contracts run and how are they guaranteed? Answer: EVM on each node, transactions are the same
+How do you peg to the dollar like in USDC or peg to prices of gold? 
+Distributed compute for other applications? Some combinations of running compute on virtual machines on nodes on the network and paying them accordingly with token or coin, relatively straightforward
 
 '''
 

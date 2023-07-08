@@ -1,3 +1,5 @@
+# Played around with code from the internet, did not write from scratch
+
 import argparse
 import gym
 import numpy as np

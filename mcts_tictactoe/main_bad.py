@@ -1,7 +1,7 @@
 # based around Alg4DM book
 
 '''
-Not a perfect MCTS, just a notepad for vtol surveyor planner. this first version has a couple big bugs, fixed in other file
+Not a perfect MCTS, just a notepad for vtol surveyor planner. this first version has a couple big bugs, fixed in other mcts_process file
 
 
 
@@ -67,6 +67,7 @@ import math
 import time
 
 class Node:
+    id_c = 0
     def __init__(self, rep, parent=None, move=None):
         self.parent = parent
         self.children = []
@@ -74,6 +75,8 @@ class Node:
         self.Q = 0 # mean value of node
         self.board = rep
         self.move = move
+        self.id_c = Node.id_c
+        Node.id_c += 1
 
     def __str__(self):
         return str(self.board)
@@ -85,6 +88,7 @@ for j in range(500):
     c=2 * 2**0.5 # exploration parameter
 
     while board.result() == None: # while game not finished
+        Node.id_c = 0
         rollout_count = 0
         board.push(random.choice([move for move in board.possible_moves()])) # player move (X)
         if board.result() != None: break
@@ -102,21 +106,30 @@ for j in range(500):
         while time.time() - timestamp < 0.2: # x seconds for computer to make move
 
             curr.N += 1
-            UCB_heuristics = [child.Q + (1e+12 if child.N == 0 else c * math.sqrt(math.log(curr.N) / child.N)) for child in curr.children] # Q(s, a) + c * sqrt ( log N(s) / N(s, a) )
+            last_node = curr
+            while len(last_node.children) > 0:
+                UCB_heuristics = [child.Q + (1e+12 if child.N == 0 else c * math.sqrt(math.log(last_node.N) / child.N)) for child in last_node.children] # Q(s, a) + c * sqrt ( log N(s) / N(s, a) )
+                last_node = last_node.children[np.argmax(UCB_heuristics)]
             # Run a rollout
-            selected_child = curr.children[np.argmax(UCB_heuristics)]
-            selected_child.N += 1
-            rollout_board = copy.deepcopy(selected_child.board)
-            while rollout_board.result() == None: # while game not finished
+
+            # selected_child = curr.children[np.argmax(UCB_heuristics)]
+            # selected_child.N += 1
+            # rollout_board = copy.deepcopy(selected_child.board)
+            while last_node.board.result() == None: # while game not finished
                 for i in range(2): # first opponent move, then agent move
                     if rollout_board.result() == None:
+                        # TODO: for action in action space, add node
                         rollout_board.push(random.choice([move for move in rollout_board.possible_moves()]))
                 # print(rollout_board)
 
             # [win, lose, draw] -> reward of [1, -1, 0]
             reward = {1:-1, 2:1, 0:0}[rollout_board.result()]
             # selected_child.Q += selected_child.Q * selected_child.N / (selected_child.N + 1) + reward / (selected_child.N + 1)
-            selected_child.Q += (reward - selected_child.Q) / selected_child.N
+            while last_node.parent is not None:
+                last_node.N += 1
+                last_node.Q += (returns - last_node.Q) / last_node.N
+                last_node = last_node.parent
+            # selected_child.Q += (reward - selected_child.Q) / selected_child.N
             # (1 + 2 + 3) / 3 + 4 / 4
 
             rollout_count += 1

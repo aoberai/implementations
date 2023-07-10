@@ -33,20 +33,6 @@ epsilon = 1
 batch_size = 128
 buffer_size = 10000
 
-class DQN(nn.Module):
-
-    def __init__(self, obs_dim, action_dim):
-        super(DQN, self).__init__()
-        self.fc1 = nn.Linear(obs_dim, 128)
-        self.fc2 = nn.Linear(128, 128)
-        self.head = nn.Linear(128, action_dim)
-
-    def forward(self, x):
-        x = F.relu(self.fc1(x))
-        x = F.relu(self.fc2(x))
-        x = self.head(x)
-        return x
-
 device = torch.device("cuda")
 policy_model, target_model = DQN(env.observation_space.shape[0], env.action_space.n).to(device), DQN(env.observation_space.shape[0], env.action_space.n).to(device)
 target_model.load_state_dict(policy_model.state_dict())

@@ -1,6 +1,6 @@
 import gymnasium as gym
 import torch
-from model import DQN
+from model import REINFORCE
 
 device = torch.device('cuda')
 policy_model = torch.load("reinforce.pt", map_location=device)

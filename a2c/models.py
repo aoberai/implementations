@@ -20,12 +20,12 @@ class Models(nn.Module):
     implements both actor and critic in one model
     """
 
-    def __init__(self):
-        super(Policy, self).__init__()
-        self.affine1 = nn.Linear(4, 128)
+    def __init__(self, in_space, out_space):
+        super(Models, self).__init__()
+        self.affine1 = nn.Linear(in_space, 128)
 
         # actor's layer
-        self.action_head = nn.Linear(128, 2)
+        self.action_head = nn.Linear(128, out_space)
 
         # critic's layer
         self.value_head = nn.Linear(128, 1)

@@ -18,10 +18,11 @@ from torch.distributions import Categorical
 
 SavedAction = namedtuple('SavedAction', ['log_prob', 'value'])
 
-env = gym.make('CartPole-v1', render_mode="human")
+# env = gym.make('CartPole-v1', render_mode="human")
+env = gym.make('LunarLander-v2', render_mode="human")
 env.reset(seed=340)
 
-model = torch.load('./models/cartpole.pt')
+model = torch.load('./models/lunarlander.pt')
 
 # reset environment and episode reward
 state, _ = env.reset()

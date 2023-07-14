@@ -1,4 +1,4 @@
-# Played around with code from the internet, did not write from scratch
+# First experience with rl -- Played around with code from the internet, did not write from scratch -- https://github.com/pytorch/examples/blob/main/reinforcement_learning/actor_critic.py
 
 import argparse
 import gym
@@ -16,29 +16,17 @@ import torch.nn.functional as F
 import torch.optim as optim
 from torch.distributions import Categorical
 
-# Cart Pole
-
-parser = argparse.ArgumentParser(description='PyTorch example')
-parser.add_argument('--gamma', type=float, default=0.99, metavar='G',
-                    help='discount factor (default: 0.99)')
-parser.add_argument('--seed', type=int, default=543, metavar='N',
-                    help='random seed (default: 543)')
-parser.add_argument('--render', action='store_true', default=True,
-                    help='render the environment')
-parser.add_argument('--log-interval', type=int, default=10, metavar='N',
-                    help='interval between training status logs (default: 10)')
-args = parser.parse_args()
-
-
 # env = gym.make('CartPole-v1', render_mode="human")
-env = gym.make('CartPole-v1')
-env.reset(seed=args.seed)
-torch.manual_seed(args.seed)
+# env = gym.make('CartPole-v1')
+env = gym.make('LunarLander-v2')
+env.reset(seed=543)
+torch.manual_seed(543)
 
+reward_discount = 0.99
 
 SavedAction = namedtuple('SavedAction', ['log_prob', 'value'])
 
-model = Policy()
+model = Models(env.observation_space.shape[0], env.action_space.n)
 optimizer = optim.Adam(model.parameters(), lr=3e-2)
 eps = np.finfo(np.float32).eps.item()
 
@@ -74,7 +62,7 @@ def finish_episode():
     # calculate the true value using rewards returned from the environment
     for r in model.rewards[::-1]:
         # calculate the discounted value
-        R = r + args.gamma * R
+        R = r + reward_discount * R
         # TODO: why is it l1_lossing midstages and not just the end point
         returns.insert(0, R)
 
@@ -89,7 +77,7 @@ def finish_episode():
         # calculate actor (policy) loss
         # evaluate policy # TODO: graph this out -- part of advantage actor critic policy gradient : https://algorithmsbook.com/files/chapter-13.pdf
         policy_losses.append(-log_prob * advantage)
-        print(policy_losses)
+        # print(policy_losses)
 
         # calculate critic (value) loss using L1 smooth loss
         # trying to match returns as calculated and the value function
@@ -134,8 +122,7 @@ def main():
             state, reward, done, _, _ = env.step(action)
             # state[2] = math.sin(state[2])
 
-            if args.render:
-                env.render()
+            env.render()
 
             model.rewards.append(reward)
             ep_reward += reward
@@ -150,12 +137,12 @@ def main():
         finish_episode()
 
         # log results
-        if i_episode % args.log_interval == 0:
+        if i_episode % 20 == 0:
             print('Episode {}\tLast reward: {:.2f}\tAverage reward: {:.2f}'.format(
                   i_episode, ep_reward, running_reward))
 
         # check if we have "solved" the cart pole problem
-        if i_episode >= 120:
+        if i_episode >= 12000:
             torch.save(model, './models/cartpole.pt')
             break
         '''

@@ -25,7 +25,8 @@ CartPole observation space: [cart position (-4.8, 4.8), cart velocity (-inf, inf
 Rewards: +1 reward for every step, including termination. Max of 475
 Actions: 0: push cart to left; 1: push cart to the right
 """
-env = gym.make("CartPole-v1")
+# env = gym.make("CartPole-v1")
+env = gym.make("LunarLander-v2")
 observation, info = env.reset(seed=42)
 render = True
 reward_discount = 0.98
@@ -113,12 +114,12 @@ def get_action(state, steps_done, model):
             # action = torch.argmax(model(torch.tensor(state, dtype=torch.float32, device=device))[0]) # exploitation
             return action
 
-episode_durations = []
+episode_returns = []
 
 # Taken from link above
 def plot_durations(show_result=False):
     plt.figure(1)
-    durations_t = torch.tensor(episode_durations, dtype=torch.float)
+    durations_t = torch.tensor(episode_returns, dtype=torch.float)
     if show_result:
         plt.title('Result')
     else:
@@ -151,10 +152,12 @@ while episode_count < 600:
     term = False
 
     actions = []
+    rews = []
     while not term:
         action = get_action(state, step_count, policy_model)
         obs, rew, term, trunc, _ = env.step(action.item())
-        term = term or trunc
+        rews.append(rew)
+        term = term or trunc or step_count > 5000 # end game if taking too long
         if term:
             next_state = None
         else:
@@ -182,8 +185,8 @@ while episode_count < 600:
 
         if term:
             episode_count += 1
-            print("epsde time:", step_count - last_step_count)
-            episode_durations.append(step_count - last_step_count)
+            print("epsde returns:", sum(rews))
+            episode_returns.append(sum(rews))
             break
 
         # print(obs, rew, term, trunc)

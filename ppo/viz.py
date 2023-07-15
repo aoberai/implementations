@@ -3,9 +3,9 @@ import torch
 from model import PPO
 
 device = torch.device('cuda')
-policy_model = torch.load("ppo.pt", map_location=device)
-# env = gym.make("CartPole-v1", render_mode="human")
-env = gym.make("LunarLander-v2", render_mode="human")
+policy_model = torch.load("ppo_ctpl.pt", map_location=device)
+env = gym.make("CartPole-v1", render_mode="human")
+# env = gym.make("LunarLander-v2", render_mode="human")
 observation, info = env.reset()
 
 for _ in range(1000):

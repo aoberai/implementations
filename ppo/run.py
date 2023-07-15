@@ -25,8 +25,8 @@ Rewards: +1 reward for every step, including termination. Max of 475
 Actions: 0: push cart to left; 1: push cart to the right
 """
 # env = gym.make("LunarLander-v2", render_mode="human")
-env = gym.make("LunarLander-v2")
-# env = gym.make("CartPole-v1")
+# env = gym.make("LunarLander-v2")
+env = gym.make("CartPole-v1")
 observation, info = env.reset(seed=42)
 render = True
 
@@ -71,7 +71,7 @@ def returns(rews, discount_fac=0.95):
 
 if __name__ == "__main__":
     eps_returns = []
-    for eps in range(episodes:=1500):
+    for eps in range(episodes:=10 * 1500):
         obs, __ = env.reset()
         actions = []
         done = False
@@ -107,7 +107,7 @@ if __name__ == "__main__":
             rewards_to_go.append(returns(eps_rews[i:], discount_fac))
         
         rewards_to_go = (rewards_to_go - np.mean(rewards_to_go)) / (np.std(rewards_to_go) + 1e-08)
-        print(rewards_to_go)
+        # print(rewards_to_go)
 
         losses = []
         for obs, prob, ret, rew, i in zip(eps_obs, eps_action_prob, rewards_to_go, eps_rews, range(len(eps_obs))):
@@ -122,6 +122,10 @@ if __name__ == "__main__":
         loss = torch.stack(losses).sum()
         loss.backward()
         opt.step()
+        
+        if eps % 500 == 0:
+            print("Saved Model")
+            torch.save(model, "ppo.pt")
 
     print("Complete")
     torch.save(model, "ppo.pt")

@@ -31,8 +31,10 @@ observation, info = env.reset(seed=42)
 render = True
 
 device = torch.device("cuda")
-policy_model = PPO(env.observation_space.shape[0], env.action_space.n).to(device)
-opt = optim.AdamW(policy_model.parameters(), lr=1e-4, amsgrad=True)
+model = PPO(env.observation_space.shape[0], env.action_space.n).to(device)
+opt = optim.AdamW(model.parameters(), lr=1e-3, amsgrad=True)
+
+discount_fac = 0.95
 
 # Taken from pytorch dqn page
 def plot_durations(eps_returns, show_result=False):
@@ -77,7 +79,7 @@ if __name__ == "__main__":
 
         eps_obs, eps_action_prob, eps_rews = [], [], []
         while not done:
-            policy_distr = policy_model(torch.tensor(obs, device=device))
+            policy_distr = model(torch.tensor(obs, device=device))[0]
             m = Categorical(policy_distr)
             action = int(m.sample())
             # print(action)
@@ -102,14 +104,19 @@ if __name__ == "__main__":
    
         rewards_to_go = []
         for i in range(len(eps_rews)):
-            rewards_to_go.append(returns(eps_rews[i:]))
+            rewards_to_go.append(returns(eps_rews[i:], discount_fac))
         
         rewards_to_go = (rewards_to_go - np.mean(rewards_to_go)) / (np.std(rewards_to_go) + 1e-08)
         print(rewards_to_go)
 
         losses = []
-        for obs, prob, ret in zip(eps_obs, eps_action_prob, rewards_to_go):
-            losses.append(-ret * torch.log(prob))
+        for obs, prob, ret, rew, i in zip(eps_obs, eps_action_prob, rewards_to_go, eps_rews, range(len(eps_obs))):
+            advantage = None
+            with torch.no_grad():
+                advantage = (rew + discount_fac * (0 if i + 1 >= len(eps_obs) else model(torch.tensor(eps_obs[i+1], device=device))[1])) - model(torch.tensor(obs, device=device))[1]
+
+            losses.append((gamma:=0.75) * (-advantage * torch.log(prob)) + (1 - gamma) * torch.pow(model(torch.tensor(obs, device=device))[1] - ret, 2))
+            # print(losses[-1], torch.pow(model(torch.tensor(obs, device=device))[1] - ret, 2))
        
         opt.zero_grad()
         loss = torch.stack(losses).sum()
@@ -117,7 +124,7 @@ if __name__ == "__main__":
         opt.step()
 
     print("Complete")
-    torch.save(policy_model, "ppo.pt")
+    torch.save(model, "ppo.pt")
     plot_durations(eps_returns, show_result=True)
     plt.ioff()
     plt.show()

@@ -1,16 +1,17 @@
 import gymnasium as gym
 import torch
-from model import REINFORCE
+from model import PPO
 
 device = torch.device('cuda')
-policy_model = torch.load("reinforce.pt", map_location=device)
-env = gym.make("CartPole-v1", render_mode="human")
+policy_model = torch.load("ppo.pt", map_location=device)
+# env = gym.make("CartPole-v1", render_mode="human")
+env = gym.make("LunarLander-v2", render_mode="human")
 observation, info = env.reset()
 
 for _ in range(1000):
     # agent policy that uses the observation and info
     # action = env.action_space.sample()
-    action = torch.argmax(policy_model(torch.as_tensor(observation, device=device).unsqueeze(0))).item()
+    action = torch.argmax(policy_model(torch.as_tensor(observation, device=device).unsqueeze(0))[0]).item()
     print(_, action)
     observation, reward, terminated, truncated, info = env.step(action)
 

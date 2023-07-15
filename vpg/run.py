@@ -26,17 +26,18 @@ Actions: 0: push cart to left; 1: push cart to the right
 """
 # env = gym.make("CartPole-v1", render_mode="human")
 env = gym.make("CartPole-v1")
+# env = gym.make("LunarLander-v2")
 observation, info = env.reset(seed=42)
 render = True
 
 device = torch.device("cuda")
 policy_model = REINFORCE(env.observation_space.shape[0], env.action_space.n).to(device)
-opt = optim.AdamW(policy_model.parameters(), lr=1e-4, amsgrad=True)
+opt = optim.AdamW(policy_model.parameters(), lr=1e-4, amsgrad=True) # 1e-3 lr for lunarlander
 
 # Taken from pytorch dqn page
-def plot_durations(eps_durations, show_result=False):
+def plot_durations(eps_returns, show_result=False):
     plt.figure(1)
-    durations_t = torch.tensor(eps_durations, dtype=torch.float)
+    durations_t = torch.tensor(eps_returns, dtype=torch.float)
     if show_result:
         plt.title('Result')
     else:
@@ -67,7 +68,7 @@ def returns(rews, discount_fac=0.95):
     return g
 
 if __name__ == "__main__":
-    eps_durations = []
+    eps_returns = []
     for eps in range(episodes:=1500):
         obs, __ = env.reset()
         actions = []
@@ -96,8 +97,8 @@ if __name__ == "__main__":
 
             steps += 1
         
-        eps_durations.append(steps)
-        plot_durations(eps_durations)
+        eps_returns.append(sum(eps_rews))
+        plot_durations(eps_returns)
    
         rewards_to_go = []
         for i in range(len(eps_rews)):
@@ -117,7 +118,7 @@ if __name__ == "__main__":
 
     print("Complete")
     torch.save(policy_model, "reinforce.pt")
-    plot_durations(eps_durations, show_result=True)
+    plot_durations(eps_returns, show_result=True)
     plt.ioff()
     plt.show()
 

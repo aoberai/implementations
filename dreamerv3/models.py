@@ -3,22 +3,21 @@ import torch.nn as nn
 import torch.optim as optim
 import torch.nn.functional as F
 
-class Seq(nn.Module):
+class Sequence(nn.Module):
     def __init__(self, input_size=1, hidden_size=50, out_size=1):
         super().__init__()
+        self.rnn = nn.RNN(input_size, hidden_size)
         self.hidden_size = hidden_size
-        self.lstm = nn.LSTM(input_size, hidden_size)
         self.linear = nn.Linear(hidden_size, out_size)
-        self.hidden = (torch.zeros(1, 1, hidden_size), torch.zeros(1, 1, hidden_size))
-        # self.hidden = torch.zeros(1, 1, hidden_size)
+        self.hidden = torch.zeros(1, 1, hidden_size)
 
     def forward(self, seq):
-        # print(seq.view(len(seq), 1, -1), self.hidden, (seq.view(len(seq), 1, -1)).shape)
-        lstm_out, self.hidden = self.lstm(seq.view(len(seq), 1, -1), self.hidden)
-        # print(self.hidden)
-        pred = self.linear(lstm_out.view(len(seq), -1))
+        rnn_out, self.hidden = self.rnn(seq.view(len(seq), 1, -1), self.hidden)
+        pred = self.linear(rnn_out.view(len(seq), -1))
+
         return pred[-1]
 
+# TODO: stride to prevent downsizing from convs
 class Encoder(nn.Module):
     def __init__(self, in_shape, latent_dims):
         super(Encoder, self).__init__()

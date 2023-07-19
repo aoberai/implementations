@@ -1,137 +1,87 @@
 """
-Steps to making world model
+https://arxiv.org/pdf/2301.04104.pdf
+
+Steps:
+
+Recurrent State Space Model
+
+Sequence Model: h_t = f_theta(h_t-1, z_t-1, a_t-1)
+Encoder: z_t ~ q_theta(z_t | h_t, x_t)
+Dynamics Predictor: z_hat_t ~ p_theta(z_hat_t | h_t)
+Reward & Continue Predictor: r_hat_t, c_hat_t ~ p_theta(r_hat_t & c_hat_t | h_t, z_t)
+Decoder: x_hat_t ~ p_theta(x_hat_t | h_t, z_t)
 
 
 """
 
-from models import Encoder, Decoder
-
-import torch
-import torch.optim as optim
-from torch.distributions import Categorical
 import gymnasium as gym
-import cv2
-import numpy as np
+import torch
 import math
 import random
 import matplotlib
 import matplotlib.pyplot as plt
+import numpy as np
 import time
-import sys
+import cv2
+import torch
+import torch.nn as nn
+import torch.optim as optim
+import torch.nn.functional as F
+from model import Encoder, Decoder
 
-env = gym.make("CartPole-v1", render_mode="rgb_array")
+is_ipython = 'inline' in matplotlib.get_backend()
+if is_ipython:
+        from IPython import display
+plt.ion()
+
+# env = gym.make("CartPole-v1")
+env = gym.make("LunarLander-v2")
 observation, info = env.reset()
+batch_size = 128
+
+scene_shape = (75, 75, 3)
 device = torch.device("cuda")
+enc, dec = Encoder(scene_shape, latent_dim).to(device), Decoder(latent_dim, scene_shape).to(device)
+opt_enc, opt_dec = optim.AdamW(enc.parameters(), lr=1e-4, amsgrad=True), optim.AdamW(dec.parameters(), lr=1e-4, amsgrad=True)
+
+# Element-wise data: scene, state, action, nxt_scene, nxt_state, rew, term
+class ReplayBuffer:
+    # capacity due to memory-constraints
+    def __init__(self, capacity=100000):
+        self.buffer = []
+        self.capacity = capacity
+
+    def add(self, *val):
+        while len(self.buffer) > self.capacity:
+            del self.buffer[0]
+        self.buffer.append(val)
+
+    def __len__(self):
+        return len(self.buffer)
+
+    def sample(self, batch_size):
+        return random.sample(self.buffer, batch_size)
+
+    def last(self):
+        return self.buffer[-1]
+
+buffer = ReplayBuffer(buffer_size)
 
 def get_action(state):
-    # exploration policy is random
+    # random policy
     return env.action_space.sample()
 
+for _ in range(15000):
+    # agent policy that uses the observation and info
+    action = get_action(observation)
+    observation, reward, terminated, truncated, info = env.step(action)
 
-if sys.argv[1] == "train":
-    scene_buffer = []
+    if terminated or truncated:
+        observation, info = env.reset()
 
-    for _ in range(15000):
-        # agent policy that uses the observation and info
-        action = get_action(observation)
-        observation, reward, terminated, truncated, info = env.step(action)
-
-        if terminated or truncated:
-            observation, info = env.reset()
-
-        img = env.render()
-        scene_buffer.append(cv2.resize(img, (75, 75)))
-        cv2.imshow("Win", cv2.resize(scene_buffer[-1], (400, 400)))
-        cv2.waitKey(1)
-
-    is_ipython = 'inline' in matplotlib.get_backend()
-    if is_ipython:
-            from IPython import display
-    plt.ion()
-
-    scene_shape = np.shape(scene_buffer[0])
-    print(scene_shape)
-    latent_dim = 10
-    enc = Encoder(scene_shape, latent_dim).to(device)
-    print(enc)
-    dec = Decoder(latent_dim, scene_shape).to(device)
-    opt_enc = optim.AdamW(enc.parameters(), lr=1e-4, amsgrad=True)
-    opt_dec = optim.AdamW(dec.parameters(), lr=1e-4, amsgrad=True)
-
-    # Taken from pytorch dqn page
-    def plot_durations(eps_returns, show_result=False):
-        plt.figure(1)
-        durations_t = torch.tensor(eps_returns, dtype=torch.float)
-        if show_result:
-            plt.title('Result')
-        else:
-            plt.clf()
-            plt.title('Training...')
-        plt.xlabel('Epochs')
-        plt.ylabel('Duration')
-        plt.plot(durations_t.numpy())
-        # Take 100 episode averages and plot them too
-        if len(durations_t) >= 100:
-            means = durations_t.unfold(0, 100, 1).mean(1).view(-1)
-            means = torch.cat((torch.zeros(99), means))
-            plt.plot(means.numpy())
-
-        plt.pause(0.001)  # pause a bit so that plots are updated
-        if is_ipython:
-            if not show_result:
-                display.display(plt.gcf())
-                display.clear_output(wait=True)
-            else:
-                display.display(plt.gcf())
+    img = env.render()
+    scene_buffer.append(cv2.resize(img, (75, 75)))
+    cv2.imshow("Win", cv2.resize(scene_buffer[-1], (400, 400)))
+    cv2.waitKey(1)
 
 
-    losses = []
-
-    for epoch in range(epochs:=20):
-        epoch_losses = 0
-        for i in range(buffer_size:=64, len(scene_buffer), buffer_size):
-            opt_enc.zero_grad()
-            opt_dec.zero_grad()
-            x = torch.tensor(np.array(scene_buffer[i-buffer_size:i])/255., device=device, dtype=torch.float).permute(0, 3, 1, 2)
-            z = enc(x)
-            x_hat = dec(z)
-            loss = (torch.sum((x - x_hat) ** 2))
-            epoch_losses += loss.item()
-            loss.backward()
-            opt_enc.step()
-            opt_dec.step()
-
-        losses.append(epoch_losses)
-        print("Epoch", epoch, "loss:", epoch_losses)
-        plot_durations(losses[1:], show_result=True)
-        np.random.shuffle(scene_buffer)
-
-    plot_durations(losses, show_result=True)
-    plt.ioff()
-    plt.show()
-
-    torch.save(enc, "enc.pt")
-    torch.save(dec, "dec.pt")
-
-elif sys.argv[1] == "inference":
-    enc = torch.load("enc.pt").to(device)
-    dec = torch.load("dec.pt").to(device)
-    observation, info = env.reset()
-
-    while True:
-        action = get_action(observation)
-        observation, reward, terminated, truncated, info = env.step(action)
-
-        if terminated or truncated:
-            observation, info = env.reset()
-        
-        scene = env.render()
-        x = torch.tensor(cv2.resize(scene, (75, 75)), device=device, dtype=torch.float).unsqueeze(0).permute(0, 3, 1, 2) / 255.
-        z = enc(x)
-        x_hat = torch.clip(dec(z), 0, 1)
-        x_img = cv2.resize(np.moveaxis((255. * x).cpu().numpy().astype("uint8")[0], 0, -1), (400, 400))
-        x_hat_img = cv2.resize(np.moveaxis((255 * x_hat).cpu().detach().numpy().astype("uint8")[0], 0, -1), (400, 400))
-        # print(np.max(x_hat_img), np.min(x_hat_img))
-        # print(torch.max(x_hat), torch.min(x_hat))
-        cv2.imshow("Original | AE'd", cv2.hconcat([x_img, x_hat_img]))
-        cv2.waitKey(1)

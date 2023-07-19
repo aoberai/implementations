@@ -1,6 +1,5 @@
 import numpy as np
 import pandas as pd
-import random
 
 import torch
 import torch.nn as nn
@@ -45,24 +44,24 @@ print(train_data[0])
 print()
 print(train_data[1])
 
-class RNN(nn.Module):
+class LSTM(nn.Module):
     def __init__(self, input_size=1, hidden_size=50, out_size=1):
         super().__init__()
         self.hidden_size = hidden_size
-        self.rnn = nn.RNN(input_size, hidden_size)
+        self.lstm = nn.LSTM(input_size, hidden_size)
         self.linear = nn.Linear(hidden_size, out_size)
-        self.hidden = torch.zeros(1, 1, hidden_size)
+        self.hidden = (torch.zeros(1, 1, hidden_size), torch.zeros(1, 1, hidden_size))
         # self.hidden = torch.zeros(1, 1, hidden_size)
 
     def forward(self, seq):
         # print(seq.view(len(seq), 1, -1), self.hidden, (seq.view(len(seq), 1, -1)).shape)
-        rnn_out, self.hidden = self.lstm(seq.view(len(seq), 1, -1), self.hidden)
+        lstm_out, self.hidden = self.lstm(seq.view(len(seq), 1, -1), self.hidden)
         # print(self.hidden)
-        pred = self.linear(rnn_out.view(len(seq), -1))
+        pred = self.linear(lstm_out.view(len(seq), -1))
         return pred[-1]
 
 torch.manual_seed(42)
-model = RNN()
+model = LSTM()
 criterion = nn.MSELoss()
 optimizer = torch.optim.SGD(model.parameters(), lr=0.01)
 
@@ -74,22 +73,21 @@ future = 40
 for i in range(epochs):
     for seq, y_train in train_data:
         optimizer.zero_grad()
-        # model.hidden = (torch.zeros(1, 1, model.hidden_size), torch.zeros(1, 1, model.hidden_size))
-        model.hidden = torch.zeros(1, 1, model.hidden_size)
+        model.hidden = (torch.zeros(1, 1, model.hidden_size), torch.zeros(1, 1, model.hidden_size))
+        # model.hidden = torch.zeros(1, 1, model.hidden_size)
         y_pred = model(seq)
         loss = criterion(y_pred, y_train)
         loss.backward()
         optimizer.step()
 
     print(f"Epoch {i} Loss: {loss.item()}")
-    
-    # window_size = random.randint(20, 50)
+
     preds = train_set[-window_size:].tolist()
     for f in range(future):
         seq = torch.FloatTensor(preds[-window_size:])
         with torch.no_grad():
-            # model.hidden = (torch.zeros(1, 1, model.hidden_size), torch.zeros(1, 1, model.hidden_size))
-            model.hidden = torch.zeros(1, 1, model.hidden_size)
+            model.hidden = (torch.zeros(1, 1, model.hidden_size), torch.zeros(1, 1, model.hidden_size))
+            # model.hidden = torch.zeros(1, 1, model.hidden_size)
             preds.append(model(seq).item())
 
     loss = criterion(torch.tensor(preds[-window_size:]), y[760:])

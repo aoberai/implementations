@@ -16,3 +16,4 @@ hidden
 mpc_arm/*.json
 *.ini
 entropy_env.py
+*.pt

@@ -5,11 +5,15 @@ Steps:
 
 Recurrent State Space Model
 
-Sequence Model: h_t = f_theta(h_t-1, z_t-1, a_t-1)
-Encoder: z_t ~ q_theta(z_t | h_t, x_t)
-Dynamics Predictor: z_hat_t ~ p_theta(z_hat_t | h_t)
-Reward & Continue Predictor: r_hat_t, c_hat_t ~ p_theta(r_hat_t & c_hat_t | h_t, z_t)
-Decoder: x_hat_t ~ p_theta(x_hat_t | h_t, z_t)
+Sequence Model: h_t = f_phi(h_t-1, z_t-1, a_t-1)
+Encoder: z_t ~ q_phi(z_t | h_t, x_t)
+Dynamics Predictor: z_hat_t ~ p_phi(z_hat_t | h_t)
+Reward & Continue Predictor: r_hat_t, c_hat_t ~ p_phi(r_hat_t & c_hat_t | h_t, z_t)
+Decoder: x_hat_t ~ p_phi(x_hat_t | h_t, z_t)
+
+z_t has to be stochastic -- must be sampleable from a categorical distribution for loss function
+
+L_pred(phi) = -ln(p_phi(x_t | z_t, h_t)) - ln(p_phi(r_t | z_t, h_t)) - ln(p_phi(c_t | z_t, h_t))
 
 
 """

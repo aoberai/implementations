@@ -13,7 +13,6 @@ class Encoder(nn.Module):
         self.conv1 = nn.Conv2d(3, 32, kernel_size=(3, 3))
         self.conv2 = nn.Conv2d(32, 64, kernel_size=(3, 3))
         self.flat = nn.Flatten()
-        # self.fc1 = nn.Linear(64*(in_shape[0]*in_shape[1]), 128)
         self.fc1 = nn.Linear(322624, 128)
         self.fc2 = nn.Linear(128, latent_dims)
 
@@ -23,7 +22,7 @@ class Encoder(nn.Module):
         x = self.flat(x)
         x = F.relu(self.fc1(x))
         x = F.relu(self.fc2(x))
-        return torch.distributions.Normal(x, 1)
+        return torch.distributions.Normal(x, 0.1)
 
 """
 Decoder: x_hat_t ~ p_phi(x_hat_t | h_t, z_t)
@@ -43,18 +42,21 @@ class Decoder(nn.Module):
         z = self.unflat(z)
         z = F.relu(self.convT1(z))
         z = F.relu(self.convT2(z))
-        return torch.distribution.Normal(z, 1)
+        return torch.distribution.Normal(z, 5)
 
 """
 Sequence Model: h_t = f_phi(h_t-1, z_t-1, a_t-1)
 """
 class SequencePredictor(nn.Module):
     def __init__(self, recurrent_dim, latent_dim, action_dim):
-        super(SequencePredictor).__init__()
+        super(SequencePredictor, self).__init__()
         self.gru_cell = nn.GRUCell(latent_dim + action_dim, recurrent_dim)
 
     def forward(self, prev_recurrent, prev_latent, prev_action):
-        curr_recurrent = self.gru_cell(prev_latent + prev_action, prev_recurrent)
+        inp = torch.cat((prev_latent, prev_action), 1)
+        inp = inp.squeeze()
+        # print(inp.shape, prev_recurrent.shape)
+        curr_recurrent = self.gru_cell(inp, prev_recurrent)
         return curr_recurrent
 
 """
@@ -62,7 +64,7 @@ Dynamics Predictor: z_hat_t ~ p_phi(z_hat_t | h_t)
 """
 class DynamicsPredictor(nn.Module):
     def __init__(self, latent_dim, recurrent_dim):
-        super(DynamicsPredictor).__init__()
+        super(DynamicsPredictor, self).__init__()
         self.fc1 = nn.Linear(recurrent_dim, 128)
         self.fc2 = nn.Linear(128, latent_dim)
 

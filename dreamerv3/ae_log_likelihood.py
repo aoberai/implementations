@@ -1,4 +1,4 @@
-from models import Encoder, Decoder
+from models_test import Encoder, Decoder
 
 import torch
 import torch.optim as optim
@@ -13,7 +13,8 @@ import matplotlib.pyplot as plt
 import time
 import sys
 
-env = gym.make("CartPole-v1", render_mode="rgb_array")
+# env = gym.make("CartPole-v1", render_mode="rgb_array")
+env = gym.make("LunarLander-v2", render_mode="rgb_array")
 observation, info = env.reset()
 device = torch.device("cuda")
 

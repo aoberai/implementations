@@ -21,7 +21,7 @@ state, info = env.reset()
 scene = cv2.resize(env.render(), (75, 75))
 batch_size = 128
 
-recurrent_dim, latent_dim, action_dim = (50,), (50,), (1,)
+recurrent_dim, latent_dim, action_dim = (10,), (10,), (1,)
 display_shape = (400, 400, 3)
 scene_shape = (75, 75, 3)
 device = torch.device("cuda")
@@ -163,7 +163,7 @@ while True:
     # TODO: make batches
     loss_pred = 0
     batch_losses = []
-    for epoch in range(epochs:=5):
+    for epoch in range(epochs:=15):
         h_t = torch.zeros(recurrent_dim).to(device)
         # h_t = torch.zeros(recurrent_dim, requires_grad=False).to(device)
         for data, i in zip(replay_buffer.get(), range(len(replay_buffer.get()))):
@@ -184,7 +184,7 @@ while True:
                 #plot_durations(batch_losses)
                 print("Batch loss", batch_losses[-1])
 
-            x_t = torch.Tensor(data.scene).to(device).unsqueeze(0).permute(0, 3, 1, 2)
+            x_t = torch.Tensor(data.scene/255.).to(device).unsqueeze(0).permute(0, 3, 1, 2)
             # a_t = torch.Tensor([data.action]).to(device).unsqueeze(1).unsqueeze(1)
             a_t = torch.Tensor([data.action]).to(device)
             # a_t = a_t.squeeze()
@@ -197,5 +197,5 @@ while True:
             loss_pred += -x_t_hat.log_prob(x_t).sum()
 
             cv2.imshow("Original", cv2.resize(np.moveaxis(x_t[0].cpu().detach().numpy(), 0, 2), display_shape[:2]))
-            cv2.imshow("Reconstructed", cv2.resize(np.moveaxis(x_t_hat.mean[0].cpu().detach().numpy(), 0, 2), display_shape[:2]))
+            cv2.imshow("Reconstructed", cv2.resize((255 * np.moveaxis(torch.clip(x_t_hat.mean, 0, 1)[0].cpu().detach().numpy(), 0, 2)).astype("uint8"), display_shape[:2]))
             cv2.waitKey(1)

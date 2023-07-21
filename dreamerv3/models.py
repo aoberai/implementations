@@ -3,19 +3,45 @@ import torch.nn as nn
 import torch.optim as optim
 import torch.nn.functional as F
 
-class Sequence(nn.Module):
-    def __init__(self, input_size=1, hidden_size=50, out_size=1):
-        super().__init__()
-        self.rnn = nn.RNN(input_size, hidden_size)
-        self.hidden_size = hidden_size
-        self.linear = nn.Linear(hidden_size, out_size)
-        self.hidden = torch.zeros(1, 1, hidden_size)
+"""
+Recurrent State Space Model
 
-    def forward(self, seq):
-        rnn_out, self.hidden = self.rnn(seq.view(len(seq), 1, -1), self.hidden)
+Sequence Model: h_t = f_phi(h_t-1, z_t-1, a_t-1)
+Encoder: z_t ~ q_phi(z_t | h_t, x_t)
+Dynamics Predictor: z_hat_t ~ p_phi(z_hat_t | h_t)
+Reward & Continue Predictor: r_hat_t, c_hat_t ~ p_phi(r_hat_t & c_hat_t | h_t, z_t)
+Decoder: x_hat_t ~ p_phi(x_hat_t | h_t, z_t)
+"""
+
+class SequencePredictor(nn.Module):
+    def __init__(self, input_size=1, recurrent_size=50, out_size=1):
+        super().__init__()
+        # GRUUUUUUU Cell
+        self.rnn = nn.GRU(input_size, recurrent_size)
+        self.recurrent_size = hidden_size
+        self.recurrent = torch.zeros(1, 1, hidden_size)
+
+    def forward(self, prev_recurrent, prev_latent, prev_action):
+        rnn_out, self.recurrent = self.rnn(seq.view(len(seq), 1, -1), self.hidden)
         pred = self.linear(rnn_out.view(len(seq), -1))
 
         return pred[-1]
+
+class DynamicsPredictor(nn.Module):
+    def __init__(self, input_size=1, recurrent_size=50, out_size=1):
+        super().__init__()
+        # GRUUUUUUU Cell
+        self.rnn = nn.RNN(input_size, recurrent_size)
+        self.recurrent_size = hidden_size
+        self.linear = nn.Linear(recurrent_size, out_size)
+        self.recurrent = torch.zeros(1, 1, hidden_size)
+
+    def forward(self, seq):
+        rnn_out, self.recurrent = self.rnn(seq.view(len(seq), 1, -1), self.hidden)
+        pred = self.linear(rnn_out.view(len(seq), -1))
+
+        return pred[-1]
+
 
 # TODO: stride to prevent downsizing from convs
 class Encoder(nn.Module):
@@ -53,3 +79,18 @@ class Decoder(nn.Module):
         z = F.relu(self.convT1(z))
         z = F.relu(self.convT2(z))
         return z
+
+class RewConPredictor(nn.Module):
+    def __init__(self, input_size=1, recurrent_size=50, out_size=1):
+        super().__init__()
+        # GRUUUUUUU Cell
+        self.rnn = nn.RNN(input_size, recurrent_size)
+        self.recurrent_size = hidden_size
+        self.linear = nn.Linear(recurrent_size, out_size)
+        self.recurrent = torch.zeros(1, 1, hidden_size)
+
+    def forward(self, seq):
+        rnn_out, self.recurrent = self.rnn(seq.view(len(seq), 1, -1), self.hidden)
+        pred = self.linear(rnn_out.view(len(seq), -1))
+
+        return pred[-1]

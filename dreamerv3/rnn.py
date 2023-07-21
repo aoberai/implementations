@@ -40,10 +40,12 @@ def input_data(seq, ws):
 
 window_size = 40
 train_data = input_data(train_set, window_size)
+"""
 print(len(train_data))
 print(train_data[0])
 print()
 print(train_data[1])
+"""
 
 class RNN(nn.Module):
     def __init__(self, input_size=1, hidden_size=2, out_size=1):
@@ -55,17 +57,19 @@ class RNN(nn.Module):
 
     def forward(self, seq, hidden):
         # print(seq.view(len(seq), 1, -1), self.hidden, (seq.view(len(seq), 1, -1)).shape)
-        rnn_out, hidden = self.rnn(seq.view(len(seq), 1, -1), hidden)
-        print(rnn_out)
-        print()
-        print()
-        print()
+        # print(seq.unsqueeze(1).unsqueeze(1))
+        # print(seq.view(len(seq), 1, -1))
+        rnn_out, hidden = self.rnn(seq.unsqueeze(1).unsqueeze(1), hidden)
+        # print(rnn_out)
+        # print()
+        # print()
+        # print()
         # print(rnn_out.view(len(seq), -1))
-        print(rnn_out.squeeze())
-        print()
-        print()
-        print()
-        print(hidden)
+        # print(rnn_out.squeeze())
+        # print()
+        # print()
+        # print()
+        # print(hidden)
         # print(self.hidden)
         # pred = self.linear(rnn_out.view(len(seq), -1))
         pred = self.linear(rnn_out.squeeze())

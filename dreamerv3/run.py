@@ -11,6 +11,7 @@ import torch
 import torch.nn as nn
 import torch.optim as optim
 import torch.nn.functional as F
+from torch.autograd import Variable
 
 from models import Encoder, Decoder, DynamicsPredictor, SequencePredictor
 
@@ -21,11 +22,12 @@ scene = cv2.resize(env.render(), (75, 75))
 batch_size = 128
 
 recurrent_dim, latent_dim, action_dim = (50,), (50,), (1,)
+display_shape = (400, 400, 3)
 scene_shape = (75, 75, 3)
 device = torch.device("cuda")
 enc, dec = Encoder(scene_shape, latent_dim[0]).to(device), Decoder(recurrent_dim[0], latent_dim[0], scene_shape).to(device)
 sequence_mdl, dynamics_mdl = SequencePredictor(recurrent_dim[0], latent_dim[0], action_dim[0]).to(device), DynamicsPredictor(latent_dim[0], recurrent_dim[0]).to(device)
-opt_enc, opt_dec = optim.AdamW(enc.parameters(), lr=1e-4, amsgrad=True), optim.AdamW(dec.parameters(), lr=1e-4, amsgrad=True)
+opt_enc, opt_dec = optim.AdamW(enc.parameters(), lr=1e-3, amsgrad=True), optim.AdamW(dec.parameters(), lr=1e-3, amsgrad=True)
 
 
 class Element:
@@ -116,7 +118,7 @@ while True:
 
         nxt_scene = cv2.resize(env.render(), (75, 75))
         replay_buffer.add(Element(scene, state, action, nxt_scene, nxt_state, reward, done))
-        cv2.imshow("Win", cv2.resize(replay_buffer.last().nxt_scene, (400, 400)))
+        cv2.imshow("Win", cv2.resize(replay_buffer.last().nxt_scene, display_shape[:2]))
         cv2.waitKey(1)
 
         state = nxt_state
@@ -142,23 +144,45 @@ while True:
     L_rep(phi) = max(1, KL[q_phi(z_t | h_t, x_t) || sg(p_phi(z_t | h_t))])
     """
 
+    '''
+    # from: # https://github.com/pytorch/examples/blob/e11e0796fc02cc2cd5b6ec2ad7cea21f77e25402/word_language_model/main.py#L155
+
+    def repackage_hidden(h):
+        """Wraps hidden states in new Variables, to detach them from their history."""
+        if type(h) == Variable:
+            return Variable(h.data)
+        else:
+            return tuple(repackage_hidden(v) for v in h)
+
+    def init_hidden(self, bsz):
+        # weight = next(self.parameters()).data
+        # return Variable(weight.new(self.nlayers, bsz, self.nhid).zero_())
+        return Variable(torch.zeros(recurrent_dim)).zero_()
+    '''
+
     # TODO: make batches
     loss_pred = 0
     batch_losses = []
     for epoch in range(epochs:=5):
         h_t = torch.zeros(recurrent_dim).to(device)
+        # h_t = torch.zeros(recurrent_dim, requires_grad=False).to(device)
         for data, i in zip(replay_buffer.get(), range(len(replay_buffer.get()))):
             if data.done:
                 h_t = torch.zeros(recurrent_dim).to(device)
+                # h_t = torch.zeros(recurrent_dim, requires_grad=False).to(device)
+                # h_t = repackage_hidden(torch.zeros(recurrent_dim).to(device))
+                # h_t = torch.autograd.Variable(h_t.data) # https://github.com/pytorch/examples/blob/e11e0796fc02cc2cd5b6ec2ad7cea21f77e25402/word_language_model/main.py#L155
             if i % batch_size == 0 and i != 0:
+                print("Backpropagating @", i)
                 opt_enc.zero_grad()
                 opt_dec.zero_grad()
-                loss_pred.backward()
+                loss_pred.backward(retain_graph=True) # TODO: why do I need this, I think this is wrong
                 opt_enc.step()
                 opt_dec.step()
                 batch_losses.append(loss_pred.item())
                 loss_pred = 0
-                plot_durations(batch_losses)
+                #plot_durations(batch_losses)
+                print("Batch loss", batch_losses[-1])
 
             x_t = torch.Tensor(data.scene).to(device).unsqueeze(0).permute(0, 3, 1, 2)
             # a_t = torch.Tensor([data.action]).to(device).unsqueeze(1).unsqueeze(1)
@@ -171,3 +195,7 @@ while True:
             h_t = h_t_nxt
             x_t_hat = dec(h_t, z_t)
             loss_pred += -x_t_hat.log_prob(x_t).sum()
+
+            cv2.imshow("Original", cv2.resize(np.moveaxis(x_t[0].cpu().detach().numpy(), 0, 2), display_shape[:2]))
+            cv2.imshow("Reconstructed", cv2.resize(np.moveaxis(x_t_hat.mean[0].cpu().detach().numpy(), 0, 2), display_shape[:2]))
+            cv2.waitKey(1)

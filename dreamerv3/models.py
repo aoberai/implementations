@@ -37,8 +37,11 @@ class Decoder(nn.Module):
         self.convT2 = nn.ConvTranspose2d(32, 3, kernel_size=(3, 3))
 
     def forward(self, recurrent, latent):
+        print(recurrent.shape, latent.shape)
         inp = torch.cat((recurrent, latent), 0)
         inp = inp.unsqueeze(0)
+        print(inp.shape)
+        exit(0)
         z = F.relu(self.fc1(inp))
         z = F.relu(self.fc2(z))
         z = self.unflat(z)

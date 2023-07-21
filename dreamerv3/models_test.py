@@ -22,6 +22,7 @@ class Encoder(nn.Module):
         x = self.flat(x)
         x = F.relu(self.fc1(x))
         x = F.relu(self.fc2(x))
+        print("enc", x.shape)
         return x
 
 """
@@ -37,6 +38,7 @@ class Decoder(nn.Module):
         self.convT2 = nn.ConvTranspose2d(32, 3, kernel_size=(3, 3))
 
     def forward(self, z):
+        print("dec", z.shape)
         z = F.relu(self.fc1(z))
         z = F.relu(self.fc2(z))
         z = self.unflat(z)

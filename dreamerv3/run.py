@@ -15,8 +15,8 @@ from torch.autograd import Variable
 
 from models import Encoder, Decoder, DynamicsPredictor, SequencePredictor
 
-# env = gym.make("CartPole-v1", render_mode="rgb_array")
-env = gym.make("LunarLander-v2", render_mode="rgb_array")
+env = gym.make("CartPole-v1", render_mode="rgb_array")
+# env = gym.make("LunarLander-v2", render_mode="rgb_array")
 state, info = env.reset()
 scene = cv2.resize(env.render(), (75, 75))
 batch_size = 128
@@ -191,11 +191,14 @@ while True:
             # z_t = enc(x_t).sample().unsqueeze(2)
             # z_t = enc(x_t).sample().squeeze()
             z_t = enc(x_t).mean.squeeze()
-            h_t_nxt = sequence_mdl(h_t, z_t, a_t)
-            # print(h_t, h_t_nxt, h_t.shape, h_t_nxt.shape, z_t, z_t.shape)
-            h_t = h_t_nxt
+
+            # TODO: uncomment
+            # h_t_nxt = sequence_mdl(h_t, z_t, a_t)
+            # h_t = h_t_nxt
+
             x_t_hat = dec(h_t, z_t)
-            loss_pred += -x_t_hat.log_prob(x_t).sum()
+            loss_pred += (torch.sum((x_t - x_t_hat.mean) ** 2))
+            # loss_pred += -x_t_hat.log_prob(x_t).sum()
 
             cv2.imshow("Original", cv2.resize(np.moveaxis(x_t[0].cpu().detach().numpy(), 0, 2), display_shape[:2]))
             cv2.imshow("Reconstructed", cv2.resize((255 * np.moveaxis(torch.clip(x_t_hat.mean, 0, 1)[0].cpu().detach().numpy(), 0, 2)).astype("uint8"), display_shape[:2]))

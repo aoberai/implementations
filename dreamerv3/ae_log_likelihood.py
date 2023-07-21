@@ -13,8 +13,8 @@ import matplotlib.pyplot as plt
 import time
 import sys
 
-# env = gym.make("CartPole-v1", render_mode="rgb_array")
-env = gym.make("LunarLander-v2", render_mode="rgb_array")
+env = gym.make("CartPole-v1", render_mode="rgb_array")
+# env = gym.make("LunarLander-v2", render_mode="rgb_array")
 observation, info = env.reset()
 device = torch.device("cuda")
 
@@ -27,7 +27,7 @@ obs_shape = (75, 75, 3)
 if sys.argv[1] == "train":
     scene_buffer = []
 
-    for _ in range(20000):
+    for _ in range(2000):
         # agent policy that uses the observation and info
         action = get_action(observation)
         observation, reward, terminated, truncated, info = env.step(action)

@@ -124,7 +124,7 @@ elif sys.argv[1] == "inference":
 
         if terminated or truncated:
             observation, info = env.reset()
-        
+
         scene = env.render()
         x = torch.tensor(cv2.resize(scene, (75, 75)), device=device, dtype=torch.float).unsqueeze(0).permute(0, 3, 1, 2) / 255.
         z = enc(x)

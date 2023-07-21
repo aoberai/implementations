@@ -26,7 +26,7 @@ obs_shape = (75, 75, 3)
 if sys.argv[1] == "train":
     scene_buffer = []
 
-    for _ in range(15000):
+    for _ in range(20000):
         # agent policy that uses the observation and info
         action = get_action(observation)
         observation, reward, terminated, truncated, info = env.step(action)
@@ -86,7 +86,7 @@ if sys.argv[1] == "train":
 
     # for scene in scene_buffer
 
-    for epoch in range(epochs:=10):
+    for epoch in range(epochs:=15):
         epoch_losses = 0
         i = 0
         for i in range(buffer_size:=64, len(scene_buffer), buffer_size):
@@ -98,7 +98,7 @@ if sys.argv[1] == "train":
             x_hat = dec(z)
             # print(torch.distributions.Independent(torch.distributions.Normal(x_hat, 1), len(obs_shape)))
             # print(torch.distributions.Independent(torch.distributions.Normal(x_hat, 1), len(obs_shape)).log_prob(x))
-            loss = -torch.distributions.Normal(x_hat, 1).log_prob(x).sum()
+            loss = -torch.distributions.Normal(x_hat, 5).log_prob(x).sum()
             # loss = (torch.sum((x - x_hat) ** 2))
             epoch_losses += loss.item()
             loss.backward()

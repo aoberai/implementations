@@ -23,7 +23,7 @@ batch_size = 128
 recurrent_dim, latent_dim, action_dim = (50,), (50,), (1,)
 scene_shape = (75, 75, 3)
 device = torch.device("cuda")
-enc, dec = Encoder(scene_shape, latent_dim[0]).to(device), Decoder(latent_dim[0], scene_shape).to(device)
+enc, dec = Encoder(scene_shape, latent_dim[0]).to(device), Decoder(recurrent_dim[0], latent_dim[0], scene_shape).to(device)
 sequence_mdl, dynamics_mdl = SequencePredictor(recurrent_dim[0], latent_dim[0], action_dim[0]).to(device), DynamicsPredictor(latent_dim[0], recurrent_dim[0]).to(device)
 opt_enc, opt_dec = optim.AdamW(enc.parameters(), lr=1e-4, amsgrad=True), optim.AdamW(dec.parameters(), lr=1e-4, amsgrad=True)
 
@@ -143,26 +143,29 @@ while True:
     """
 
     # TODO: make batches
-    h_t = torch.zeros(recurrent_dim).to(device)
     loss_pred = 0
+    batch_losses = []
     for epoch in range(epochs:=5):
+        h_t = torch.zeros(recurrent_dim).to(device)
         for data, i in zip(replay_buffer.get(), range(len(replay_buffer.get()))):
             if data.done:
-                h_t = torch.zeros(recurrent_dim)
+                h_t = torch.zeros(recurrent_dim).to(device)
             if i % batch_size == 0 and i != 0:
                 opt_enc.zero_grad()
                 opt_dec.zero_grad()
                 loss_pred.backward()
                 opt_enc.step()
                 opt_dec.step()
-                loss_pred = torch.Tensor(0, requires_grad=True).to(device)
-                plot_durations(losses)
+                batch_losses.append(loss_pred.item())
+                loss_pred = 0
+                plot_durations(batch_losses)
 
             x_t = torch.Tensor(data.scene).to(device).unsqueeze(0).permute(0, 3, 1, 2)
             # a_t = torch.Tensor([data.action]).to(device).unsqueeze(1).unsqueeze(1)
-            a_t = torch.Tensor([data.action]).to(device).unsqueeze(1)
+            a_t = torch.Tensor([data.action]).to(device)
+            # a_t = a_t.squeeze()
             # z_t = enc(x_t).sample().unsqueeze(2)
-            z_t = enc(x_t).sample()
+            z_t = enc(x_t).sample().squeeze()
             h_t_nxt = sequence_mdl(h_t, z_t, a_t)
             # print(h_t, h_t_nxt, h_t.shape, h_t_nxt.shape, z_t, z_t.shape)
             h_t = h_t_nxt

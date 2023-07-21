@@ -36,25 +36,26 @@ cv2.imshow("Augmented Bitboard", bitmap_img)
 cv2.waitKey(1000)
 
 
-env = StateFilterEntropy(20, bitmap_img)
+env = StateFilterEntropy(20, bitmap_img, game_length=10)
+env.set_render(mode="human")
 check_env(env)
 
-model = PPO("MlpPolicy", env, verbose=1)
+model = PPO("MlpPolicy", env, learning_rate=0.004, clip_range=0.3, verbose=1)
 
-for i in range(10):
-    # model.learn(total_timesteps=25000)
-    model.learn(total_timesteps=2048*2)
-
-    vec_env = copy.copy(model.get_env())
-    vec_env.set_render(mode="human")
-    obs = vec_env.reset()
-    for i in range(1000):
-        action, _states = model.predict(obs, deterministic=True)
-        obs, reward, done, info = vec_env.step(action)
-        cv2.imshow("win", vec_env.render())
-        cv2.waitKey(1)
-        # VecEnv resets automatically
-        # if done:
-        #   obs = env.reset()
+# model.learn(total_timesteps=25000)
+model.learn(total_timesteps=2048*1200)
+"""
+vec_env = copy.copy(model.get_env())
+vec_env.set_render(mode="human")
+obs = vec_env.reset()
+for i in range(1000):
+    action, _states = model.predict(obs, deterministic=True)
+    obs, reward, done, info = vec_env.step(action)
+    cv2.imshow("win", vec_env.render())
+    cv2.waitKey(1)
+    # VecEnv resets automatically
+    # if done:
+    #   obs = env.reset()
+"""
 
 env.close()

@@ -43,7 +43,7 @@ class Decoder(nn.Module):
         z = self.unflat(z)
         z = F.relu(self.convT1(z))
         z = F.relu(self.convT2(z))
-        return torch.distributions.Normal(z, 15)
+        return torch.distributions.Normal(z, 5)
 
 """
 Sequence Model: h_t = f_phi(h_t-1, z_t-1, a_t-1)

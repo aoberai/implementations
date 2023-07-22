@@ -16,7 +16,7 @@ import sys
 device = torch.device("cuda")
 display_shape = (400, 400, 3)
 scene_shape = (75, 75, 3)
-batch_size = 64
+batch_size = 128
 dataset_len = 15000
 epoch_ct = 50
 latent_dims = (30,)
@@ -53,8 +53,8 @@ Dynamics Predictor: z_hat_t ~ p_phi(z_hat_t | h_t)
 dynamics_mdl = DynamicsPredictor(latent_dims[0], recurrent_dims[0]).to(device)
 
 
-opt_enc = optim.AdamW(enc.parameters(), lr=1e-4, amsgrad=True)
-opt_dec = optim.AdamW(dec.parameters(), lr=1e-4, amsgrad=True)
+opt_enc = optim.AdamW(enc.parameters(), lr=1e-3, amsgrad=True)
+opt_dec = optim.AdamW(dec.parameters(), lr=1e-3, amsgrad=True)
 opt_seq = optim.AdamW(sequence_mdl.parameters(), lr=1e-4, amsgrad=True)
 opt_dyn = optim.AdamW(dynamics_mdl.parameters(), lr=1e-4, amsgrad=True)
 
@@ -152,13 +152,13 @@ for epoch in range(epoch_ct):
 
         z_hat = dynamics_mdl(h)
 
-        loss_pred = -x_hat.log_prob(x).sum()
+        loss_pred = -x_hat.log_prob(x).mean() # sum intead of mean?
 
         # max stops gradient backprop if error is small enough
         loss_dyn = torch.max(torch.Tensor(1).to(device), torch.distributions.kl.kl_divergence(torch.distributions.Normal(z.mean.detach(), z.stddev.detach()), z_hat).mean()) # mean and not sum right
         loss_rep = torch.max(torch.Tensor(1).to(device), torch.distributions.kl.kl_divergence(z, torch.distributions.Normal(z_hat.mean.detach(), z_hat.stddev.detach())).mean())
-
         loss = (B_pred:=1) * loss_pred + (B_dyn:=0.5) * loss_dyn + (B_rep:=0.1) * loss_rep
+        print(torch.distributions.kl.kl_divergence(torch.distributions.Normal(z.mean.detach(), z.stddev.detach()), z_hat).mean(), torch.distributions.kl.kl_divergence(z, torch.distributions.Normal(z_hat.mean.detach(), z_hat.stddev.detach())).mean(), loss_pred, loss, loss.item())
         loss.backward()
         epoch_losses += loss.item()
         opt_enc.step()
@@ -172,9 +172,11 @@ for epoch in range(epoch_ct):
         cv2.imshow("Original | AE'd", cv2.hconcat([x_img, x_hat_img]))
         cv2.waitKey(1)
 
-    print("Epoch", epoch, "loss:", epoch_losses)
+    print("Epoch", epoch, "loss:", epoch_losses) # why is epoch losses nan
     # np.random.shuffle(scene_buffer) # TODO: This might be the issue causing part
 
 torch.save(enc, "models/enc.pt")
 torch.save(dec, "models/dec.pt")
+torch.save(sequence_mdl, "models/seq.pt")
+torch.save(dynamics_mdl, "models/dyn.pt")
 

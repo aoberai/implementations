@@ -17,13 +17,14 @@ device = torch.device("cuda")
 display_shape = (400, 400, 3)
 scene_shape = (75, 75, 3)
 batch_size = 64
-dataset_len = 20000
-epoch_ct = 15*2
-latent_dims = (100,)
-recurrent_dims = (5,)
+dataset_len = 15000
+epoch_ct = 50
+latent_dims = (30,)
+recurrent_dims = (30,)
 action_dims = (1,) # TODO: one hot encode
-# env = gym.make("CartPole-v1", render_mode="rgb_array")
-env = gym.make("LunarLander-v2", render_mode="rgb_array")
+env = gym.make("CartPole-v1", render_mode="rgb_array")
+# env = gym.make("MountainCarContinuous-v0", render_mode="rgb_array")
+# env = gym.make("LunarLander-v2", render_mode="rgb_array")
 state, info = env.reset()
 scene = cv2.resize(env.render(), scene_shape[:2])
 
@@ -54,6 +55,8 @@ dynamics_mdl = DynamicsPredictor(latent_dims[0], recurrent_dims[0]).to(device)
 
 opt_enc = optim.AdamW(enc.parameters(), lr=1e-4, amsgrad=True)
 opt_dec = optim.AdamW(dec.parameters(), lr=1e-4, amsgrad=True)
+opt_seq = optim.AdamW(sequence_mdl.parameters(), lr=1e-4, amsgrad=True)
+opt_dyn = optim.AdamW(dynamics_mdl.parameters(), lr=1e-4, amsgrad=True)
 
 class Element:
     def __init__(self, scene, state, action, nxt_scene, nxt_state, reward, done):
@@ -131,6 +134,8 @@ for epoch in range(epoch_ct):
         batch = replay_buffer.get()[i-batch_size:i]
         opt_enc.zero_grad()
         opt_dec.zero_grad()
+        opt_dyn.zero_grad()
+        opt_seq.zero_grad()
         x = torch.tensor(np.array([c.scene for c in batch])/255., device=device, dtype=torch.float).permute(0, 3, 1, 2)
         z = enc(x)
         h = torch.zeros((batch_size, recurrent_dims[0])).to(device)
@@ -144,12 +149,22 @@ for epoch in range(epoch_ct):
                 h_t = torch.zeros(recurrent_dims).to(device)
             # get hidden states
         x_hat = dec(h, z.mean)
+
+        z_hat = dynamics_mdl(h)
+
         loss_pred = -x_hat.log_prob(x).sum()
-        loss = loss_pred
+
+        # max stops gradient backprop if error is small enough
+        loss_dyn = torch.max(torch.Tensor(1).to(device), torch.distributions.kl.kl_divergence(torch.distributions.Normal(z.mean.detach(), z.stddev.detach()), z_hat).mean()) # mean and not sum right
+        loss_rep = torch.max(torch.Tensor(1).to(device), torch.distributions.kl.kl_divergence(z, torch.distributions.Normal(z_hat.mean.detach(), z_hat.stddev.detach())).mean())
+
+        loss = (B_pred:=1) * loss_pred + (B_dyn:=0.5) * loss_dyn + (B_rep:=0.1) * loss_rep
         loss.backward()
         epoch_losses += loss.item()
         opt_enc.step()
         opt_dec.step()
+        opt_seq.step()
+        opt_dyn.step()
 
         x_img = cv2.resize(np.moveaxis((255. * x[0]).cpu().numpy().astype("uint8"), 0, -1), (400, 400))
         x_hat_img = cv2.resize(np.moveaxis((255 * torch.clip(x_hat.mean, 0, 1)[0]).cpu().detach().numpy().astype("uint8"), 0, -1), (400, 400))

@@ -22,7 +22,7 @@ class Encoder(nn.Module):
         x = self.flat(x)
         x = F.relu(self.fc1(x))
         x = F.relu(self.fc2(x))
-        return x
+        return torch.distributions.Normal(x, 0.001)
 
 """
 Decoder: x_hat_t ~ p_phi(x_hat_t | h_t, z_t)
@@ -37,15 +37,13 @@ class Decoder(nn.Module):
         self.convT2 = nn.ConvTranspose2d(32, 3, kernel_size=(3, 3))
 
     def forward(self, recurrent, latent):
-        print(recurrent.shape, latent.shape)
         z = torch.cat((recurrent, latent), 1)
-        print("decoder combined recurrent and latent", z.shape, z)
         z = F.relu(self.fc1(z))
         z = F.relu(self.fc2(z))
         z = self.unflat(z)
         z = F.relu(self.convT1(z))
         z = F.relu(self.convT2(z))
-        return z
+        return torch.distributions.Normal(z, 8)
 
 """
 Sequence Model: h_t = f_phi(h_t-1, z_t-1, a_t-1)

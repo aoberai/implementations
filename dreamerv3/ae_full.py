@@ -1,4 +1,4 @@
-from models_test import Encoder, Decoder
+from models_test import Encoder, Decoder, SequencePredictor, DynamicsPredictor
 
 import torch
 import torch.optim as optim
@@ -16,17 +16,42 @@ import sys
 device = torch.device("cuda")
 display_shape = (400, 400, 3)
 scene_shape = (75, 75, 3)
-batch_size = 1
+batch_size = 64
 dataset_len = 20000
-epoch_ct = 15
-latent_dims = (15,)
-recurrent_dims = (2,)
-env = gym.make("CartPole-v1", render_mode="rgb_array")
-# env = gym.make("LunarLander-v2", render_mode="rgb_array")
+epoch_ct = 15*2
+latent_dims = (100,)
+recurrent_dims = (5,)
+action_dims = (1,) # TODO: one hot encode
+# env = gym.make("CartPole-v1", render_mode="rgb_array")
+env = gym.make("LunarLander-v2", render_mode="rgb_array")
 state, info = env.reset()
 scene = cv2.resize(env.render(), scene_shape[:2])
+
+"""
+Encoder: z_t ~ q_phi(z_t | h_t, x_t)
+"""
+
 enc = Encoder(scene_shape, latent_dims[0]).to(device)
+
+"""
+Decoder: x_hat_t ~ p_phi(x_hat_t | h_t, z_t)
+"""
+
 dec = Decoder(recurrent_dims[0], latent_dims[0]).to(device)
+
+"""
+Sequence Model: h_t = f_phi(h_t-1, z_t-1, a_t-1)
+"""
+
+sequence_mdl = SequencePredictor(recurrent_dims[0], latent_dims[0], action_dims[0]).to(device)
+
+"""
+Dynamics Predictor: z_hat_t ~ p_phi(z_hat_t | h_t)
+"""
+
+dynamics_mdl = DynamicsPredictor(latent_dims[0], recurrent_dims[0]).to(device)
+
+
 opt_enc = optim.AdamW(enc.parameters(), lr=1e-4, amsgrad=True)
 opt_dec = optim.AdamW(dec.parameters(), lr=1e-4, amsgrad=True)
 
@@ -74,8 +99,6 @@ def get_action(state):
     # exploration policy is random
     return env.action_space.sample()
 
-scene_buffer = []
-
 for _ in range(dataset_len):
     # agent policy that uses the state and info
     action = get_action(state)
@@ -93,36 +116,49 @@ for _ in range(dataset_len):
     if done:
         state, info = env.reset()
 
+"""
+L_pred(phi) = -ln(p_phi(x_t | z_t, h_t)) - ln(p_phi(r_t | z_t, h_t)) - ln(p_phi(c_t | z_t, h_t))
+L_dyn(phi) = max(1, KL[sg(q_phi(z_t | h_t, x_t)) || p_phi(z_t | h_t)])
+L_rep(phi) = max(1, KL[q_phi(z_t | h_t, x_t) || sg(p_phi(z_t | h_t))])
+"""
 
-
-scene_buffer = [element.scene for element in replay_buffer.get()]
-h = torch.zeros(recurrent_dims).unsqueeze(0).to(device)
+# scene_buffer = [element.scene for element in replay_buffer.get()]
+replay_buffer.get()
 
 for epoch in range(epoch_ct):
     epoch_losses = 0
-    for i in range(batch_size, len(scene_buffer), batch_size):
+    for i in range(batch_size, len(replay_buffer.get()), batch_size):
+        batch = replay_buffer.get()[i-batch_size:i]
         opt_enc.zero_grad()
         opt_dec.zero_grad()
-        x = torch.tensor(np.array(scene_buffer[i-batch_size:i])/255., device=device, dtype=torch.float).permute(0, 3, 1, 2)
+        x = torch.tensor(np.array([c.scene for c in batch])/255., device=device, dtype=torch.float).permute(0, 3, 1, 2)
         z = enc(x)
-        x_hat = dec(h, z)
-        loss = -torch.distributions.Normal(x_hat, 5).log_prob(x).sum()
-        # loss = (torch.sum((x - x_hat) ** 2))
-        epoch_losses += loss.item()
+        h = torch.zeros((batch_size, recurrent_dims[0])).to(device)
+        h_t = torch.zeros(recurrent_dims).to(device).to(device)
+        for elem, z_t, c in zip(batch, z.mean, range(len(batch))):
+            a_t = torch.Tensor([elem.action]).to(device)
+            h[c] = h_t
+            # print(h_t.shape, z_t.shape, a_t.shape)
+            h_t = sequence_mdl(h_t, z_t, a_t)
+            if elem.done:
+                h_t = torch.zeros(recurrent_dims).to(device)
+            # get hidden states
+        x_hat = dec(h, z.mean)
+        loss_pred = -x_hat.log_prob(x).sum()
+        loss = loss_pred
         loss.backward()
+        epoch_losses += loss.item()
         opt_enc.step()
         opt_dec.step()
 
-        x_hat = torch.clip(x_hat, 0, 1)
         x_img = cv2.resize(np.moveaxis((255. * x[0]).cpu().numpy().astype("uint8"), 0, -1), (400, 400))
-        x_hat_img = cv2.resize(np.moveaxis((255 * x_hat[0]).cpu().detach().numpy().astype("uint8"), 0, -1), (400, 400))
-        # print(np.max(x_hat_img), np.min(x_hat_img))
-        # print(torch.max(x_hat), torch.min(x_hat))
+        x_hat_img = cv2.resize(np.moveaxis((255 * torch.clip(x_hat.mean, 0, 1)[0]).cpu().detach().numpy().astype("uint8"), 0, -1), (400, 400))
+
         cv2.imshow("Original | AE'd", cv2.hconcat([x_img, x_hat_img]))
         cv2.waitKey(1)
 
     print("Epoch", epoch, "loss:", epoch_losses)
-    np.random.shuffle(scene_buffer)
+    # np.random.shuffle(scene_buffer) # TODO: This might be the issue causing part
 
 torch.save(enc, "models/enc.pt")
 torch.save(dec, "models/dec.pt")

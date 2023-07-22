@@ -16,16 +16,17 @@ import sys
 device = torch.device("cuda")
 display_shape = (400, 400, 3)
 scene_shape = (75, 75, 3)
-batch_size = 64
-dataset_len = 10000
+batch_size = 1
+dataset_len = 20000
 epoch_ct = 15
-latent_dim = (15,)
+latent_dims = (15,)
+recurrent_dims = (2,)
 env = gym.make("CartPole-v1", render_mode="rgb_array")
 # env = gym.make("LunarLander-v2", render_mode="rgb_array")
 state, info = env.reset()
 scene = cv2.resize(env.render(), scene_shape[:2])
-enc = Encoder(scene_shape, latent_dim[0]).to(device)
-dec = Decoder(latent_dim[0], scene_shape).to(device)
+enc = Encoder(scene_shape, latent_dims[0]).to(device)
+dec = Decoder(recurrent_dims[0], latent_dims[0]).to(device)
 opt_enc = optim.AdamW(enc.parameters(), lr=1e-4, amsgrad=True)
 opt_dec = optim.AdamW(dec.parameters(), lr=1e-4, amsgrad=True)
 
@@ -95,6 +96,7 @@ for _ in range(dataset_len):
 
 
 scene_buffer = [element.scene for element in replay_buffer.get()]
+h = torch.zeros(recurrent_dims).unsqueeze(0).to(device)
 
 for epoch in range(epoch_ct):
     epoch_losses = 0
@@ -103,15 +105,14 @@ for epoch in range(epoch_ct):
         opt_dec.zero_grad()
         x = torch.tensor(np.array(scene_buffer[i-batch_size:i])/255., device=device, dtype=torch.float).permute(0, 3, 1, 2)
         z = enc(x)
-        x_hat = dec(z)
+        x_hat = dec(h, z)
         loss = -torch.distributions.Normal(x_hat, 5).log_prob(x).sum()
         # loss = (torch.sum((x - x_hat) ** 2))
         epoch_losses += loss.item()
         loss.backward()
         opt_enc.step()
         opt_dec.step()
-        
-        print(x_hat.shape)
+
         x_hat = torch.clip(x_hat, 0, 1)
         x_img = cv2.resize(np.moveaxis((255. * x[0]).cpu().numpy().astype("uint8"), 0, -1), (400, 400))
         x_hat_img = cv2.resize(np.moveaxis((255 * x_hat[0]).cpu().detach().numpy().astype("uint8"), 0, -1), (400, 400))

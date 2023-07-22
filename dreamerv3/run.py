@@ -108,7 +108,7 @@ def plot_durations(eps_returns, show_result=False):
 
 
 while True:
-    for i in range(batch_size * 10): # TODO: also divisible by batch number
+    for i in range(batch_size * 100): # TODO: also divisible by batch number
         # agent policy that uses the state and info
         action = get_action(state)
         nxt_state, reward, terminated, truncated, info = env.step(action)

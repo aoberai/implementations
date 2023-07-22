@@ -13,21 +13,22 @@ import torch.optim as optim
 import torch.nn.functional as F
 from torch.autograd import Variable
 
-from models import Encoder, Decoder, DynamicsPredictor, SequencePredictor
+from models_ads import Encoder, Decoder, DynamicsPredictor, SequencePredictor
 
 env = gym.make("CartPole-v1", render_mode="rgb_array")
 # env = gym.make("LunarLander-v2", render_mode="rgb_array")
 state, info = env.reset()
 scene = cv2.resize(env.render(), (75, 75))
-batch_size = 128
+batch_size = 64
 
-recurrent_dim, latent_dim, action_dim = (1,), (15,), (1,)
+recurrent_dim, latent_dim, action_dim = (2,), (15,), (1,)
 display_shape = (400, 400, 3)
 scene_shape = (75, 75, 3)
 device = torch.device("cuda")
-enc, dec = Encoder(scene_shape, latent_dim[0]).to(device), Decoder(recurrent_dim[0], latent_dim[0], scene_shape).to(device)
+# enc, dec = Encoder(scene_shape, latent_dim[0]).to(device), Decoder(recurrent_dim[0], latent_dim[0], scene_shape).to(device)
+enc, dec = Encoder(scene_shape, latent_dim[0]).to(device), Decoder(latent_dim[0], scene_shape).to(device)
 sequence_mdl, dynamics_mdl = SequencePredictor(recurrent_dim[0], latent_dim[0], action_dim[0]).to(device), DynamicsPredictor(latent_dim[0], recurrent_dim[0]).to(device)
-opt_enc, opt_dec = optim.AdamW(enc.parameters(), lr=1e-3, amsgrad=True), optim.AdamW(dec.parameters(), lr=1e-3, amsgrad=True)
+opt_enc, opt_dec = optim.AdamW(enc.parameters(), lr=1e-4, amsgrad=True), optim.AdamW(dec.parameters(), lr=1e-4, amsgrad=True)
 
 
 class Element:
@@ -107,7 +108,7 @@ def plot_durations(eps_returns, show_result=False):
 
 
 while True:
-    for i in range(batch_size * 100): # TODO: also divisible by batch number
+    for i in range(batch_size * 10): # TODO: also divisible by batch number
         # agent policy that uses the state and info
         action = get_action(state)
         nxt_state, reward, terminated, truncated, info = env.step(action)
@@ -190,17 +191,20 @@ while True:
             # a_t = a_t.squeeze()
             # z_t = enc(x_t).sample().unsqueeze(2)
             # z_t = enc(x_t).sample().squeeze()
-            z_t = enc(x_t).mean.squeeze()
+            # z_t = enc(x_t).mean.squeeze()
+            z_t = enc(x_t)
+            print(z_t)
 
             # TODO: uncomment
             # h_t_nxt = sequence_mdl(h_t, z_t, a_t)
             # h_t = h_t_nxt
 
-            x_t_hat = dec(h_t, z_t)
-            loss_pred += (torch.sum((x_t - x_t_hat.mean) ** 2))
-            # loss_pred += -x_t_hat.log_prob(x_t).sum()
+            x_t_hat = dec(z_t)
+            # print("x_t_hat", x_t_hat.mean.shape, cv2.resize((255 * np.moveaxis(torch.clip(x_t_hat.mean, 0, 1)[0].cpu().detach().numpy(), 0, 2)).astype("uint8"), display_shape[:2]).shape)
+            # x_t_hat = dec(h_t, z_t)
+            loss_pred += (torch.sum((x_t - x_t_hat) ** 2))
+            #loss_pred += -x_t_hat.log_prob(x_t).sum()
 
             cv2.imshow("Original", cv2.resize(np.moveaxis(x_t[0].cpu().detach().numpy(), 0, 2), display_shape[:2]))
-            cv2.imshow("Reconstructed", cv2.resize((255 * np.moveaxis(torch.clip(x_t_hat.mean, 0, 1)[0].cpu().detach().numpy(), 0, 2)).astype("uint8"), display_shape[:2]))
-            print(z_t)
+            cv2.imshow("Reconstructed", cv2.resize((255 * np.moveaxis(torch.clip(x_t_hat, 0, 1)[0].cpu().detach().numpy(), 0, 2)).astype("uint8"), display_shape[:2]))
             cv2.waitKey(1)

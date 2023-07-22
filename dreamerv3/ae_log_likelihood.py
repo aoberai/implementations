@@ -27,7 +27,7 @@ obs_shape = (75, 75, 3)
 if sys.argv[1] == "train":
     scene_buffer = []
 
-    for _ in range(2000):
+    for _ in range(10000):
         # agent policy that uses the observation and info
         action = get_action(observation)
         observation, reward, terminated, truncated, info = env.step(action)
@@ -51,8 +51,8 @@ if sys.argv[1] == "train":
     enc = Encoder(scene_shape, latent_dim).to(device)
     # print(enc)
     dec = Decoder(latent_dim, scene_shape).to(device)
-    opt_enc = optim.AdamW(enc.parameters(), lr=1e-3, amsgrad=True)
-    opt_dec = optim.AdamW(dec.parameters(), lr=1e-3, amsgrad=True)
+    opt_enc = optim.AdamW(enc.parameters(), lr=1e-4, amsgrad=True)
+    opt_dec = optim.AdamW(dec.parameters(), lr=1e-4, amsgrad=True)
 
     # Taken from pytorch dqn page
     def plot_durations(eps_returns, show_result=False):

@@ -22,31 +22,28 @@ class Encoder(nn.Module):
         x = self.flat(x)
         x = F.relu(self.fc1(x))
         x = F.relu(self.fc2(x))
-        return torch.distributions.Normal(x, 0.001)
+        print("enc", x.shape)
+        return x
 
 """
 Decoder: x_hat_t ~ p_phi(x_hat_t | h_t, z_t)
 """
 class Decoder(nn.Module):
-    def __init__(self, recurrent_dim, latent_dim, out_shape):
+    def __init__(self, latent_dims, out_shape):
         super(Decoder, self).__init__()
-        self.fc1 = nn.Linear(recurrent_dim + latent_dim, 128)
+        self.fc1 = nn.Linear(latent_dims, 128)
         self.fc2 = nn.Linear(128, 322624)
         self.unflat = nn.Unflatten(1, (64, 71, 71))
         self.convT1 = nn.ConvTranspose2d(64, 32, kernel_size=(3, 3))
         self.convT2 = nn.ConvTranspose2d(32, 3, kernel_size=(3, 3))
 
-    def forward(self, recurrent, latent):
-        print(recurrent.shape, latent.shape)
-        inp = torch.cat((recurrent, latent), 1)
-        print(inp.shape)
-        # inp = inp.unsqueeze(0)
-        z = F.relu(self.fc1(inp))
+    def forward(self, z):
+        z = F.relu(self.fc1(z))
         z = F.relu(self.fc2(z))
         z = self.unflat(z)
         z = F.relu(self.convT1(z))
         z = F.relu(self.convT2(z))
-        return torch.distributions.Normal(z, 15)
+        return z
 
 """
 Sequence Model: h_t = f_phi(h_t-1, z_t-1, a_t-1)

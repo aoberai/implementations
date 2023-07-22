@@ -4,7 +4,7 @@ Steps to making world model
 
 """
 
-from models import Encoder, Decoder
+from models_test import Encoder, Decoder
 
 import torch
 import torch.optim as optim
@@ -128,6 +128,7 @@ elif sys.argv[1] == "inference":
         scene = env.render()
         x = torch.tensor(cv2.resize(scene, (75, 75)), device=device, dtype=torch.float).unsqueeze(0).permute(0, 3, 1, 2) / 255.
         z = enc(x)
+        print(z)
         x_hat = torch.clip(dec(z), 0, 1)
         x_img = cv2.resize(np.moveaxis((255. * x).cpu().numpy().astype("uint8")[0], 0, -1), (400, 400))
         x_hat_img = cv2.resize(np.moveaxis((255 * x_hat).cpu().detach().numpy().astype("uint8")[0], 0, -1), (400, 400))

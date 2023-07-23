@@ -155,13 +155,16 @@ for epoch in range(epoch_ct):
 
         z_hat = dynamics_mdl(h)
 
-        loss_pred = -x_hat.log_prob(x).mean() # sum intead of mean?
+        loss_pred = (B_pred:=10) * -x_hat.log_prob(x).mean() # sum intead of mean?
 
         # max stops gradient backprop if error is small enough
-        loss_dyn = torch.max(torch.Tensor(1).to(device), torch.distributions.kl.kl_divergence(torch.distributions.Normal(z.mean.detach(), z.stddev.detach()), z_hat).mean()) # mean and not sum right
-        loss_rep = torch.max(torch.Tensor(1).to(device), torch.distributions.kl.kl_divergence(z, torch.distributions.Normal(z_hat.mean.detach(), z_hat.stddev.detach())).mean())
-        loss = (B_pred:=1) * loss_pred + (B_dyn:=0.5) * loss_dyn + (B_rep:=0.1) * loss_rep
-        print(torch.distributions.kl.kl_divergence(torch.distributions.Normal(z.mean.detach(), z.stddev.detach()), z_hat).mean(), torch.distributions.kl.kl_divergence(z, torch.distributions.Normal(z_hat.mean.detach(), z_hat.stddev.detach())).mean(), loss_pred, loss, loss.item())
+        # loss_dyn = torch.max(torch.Tensor(1).to(device), torch.distributions.kl.kl_divergence(torch.distributions.Normal(z.mean.detach(), z.stddev.detach()), z_hat).mean()) # mean and not sum right
+        # loss_rep = torch.max(torch.Tensor(1).to(device), torch.distributions.kl.kl_divergence(z, torch.distributions.Normal(z_hat.mean.detach(), z_hat.stddev.detach())).mean())
+
+        loss_dyn = (B_dyn:=10) * torch.distributions.kl.kl_divergence(torch.distributions.Normal(z.mean.detach(), z.stddev.detach()), z_hat).mean() # mean and not sum right
+        loss_rep = (B_rep:=1) * torch.distributions.kl.kl_divergence(z, torch.distributions.Normal(z_hat.mean.detach(), z_hat.stddev.detach())).mean()
+        loss = loss_pred + loss_dyn + loss_rep
+        print(loss_pred, loss_dyn, loss_rep, loss, loss.item())
         loss.backward()
         epoch_losses += loss.item()
         opt_enc.step()

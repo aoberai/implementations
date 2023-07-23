@@ -70,9 +70,11 @@ print("Action: left")
 
 for i in range(150):
     h_t = sequence_mdl(h_t.squeeze(), z_t.squeeze(), a_0)
+    print(h_t)
     z_t = dynamics_mdl(h_t).mean
     x_t = dec(h_t.unsqueeze(0), z_t.unsqueeze(0)).mean
     x_hat_img = cv2.resize(np.moveaxis((255 * torch.clip(x_t, 0, 1)[0]).cpu().detach().numpy().astype("uint8"), 0, -1), display_shape[:2])
+    print(x_hat_img)
     cv2.imshow("Imagination", x_hat_img)
     cv2.waitKey(1000)
 

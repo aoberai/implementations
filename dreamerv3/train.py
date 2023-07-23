@@ -1,4 +1,4 @@
-from models_test import Encoder, Decoder, SequencePredictor, DynamicsPredictor
+from models import Encoder, Decoder, SequencePredictor, DynamicsPredictor
 
 import torch
 import torch.optim as optim
@@ -25,14 +25,16 @@ action_dims = (1,) # TODO: one hot encode
 env = gym.make("CartPole-v1", render_mode="rgb_array")
 # env = gym.make("MountainCarContinuous-v0", render_mode="rgb_array")
 # env = gym.make("LunarLander-v2", render_mode="rgb_array")
+# TODO: https://github.com/openai/gym/blob/master/gym/envs/box2d/car_racing.py
 state, info = env.reset()
+# scene = cv2.cvtColor(cv2.resize(env.render(), scene_shape[:2]), cv2.COLOR_BGR2RGB)
 scene = cv2.resize(env.render(), scene_shape[:2])
 
 """
 Encoder: z_t ~ q_phi(z_t | h_t, x_t)
 """
 
-enc = Encoder(scene_shape, latent_dims[0]).to(device)
+enc = Encoder(scene_shape, latent_dims[0]).to(device) # TODO: this was wrong, need to pass recurrent state in as well
 
 """
 Decoder: x_hat_t ~ p_phi(x_hat_t | h_t, z_t)
@@ -108,6 +110,7 @@ for _ in range(dataset_len):
     nxt_state, reward, terminated, truncated, info = env.step(action)
     done = terminated or truncated
 
+    # nxt_scene = cv2.cvtColor(cv2.resize(env.render(), scene_shape[:2]), cv2.COLOR_BGR2RGB)
     nxt_scene = cv2.resize(env.render(), scene_shape[:2])
     replay_buffer.add(Element(scene, state, action, nxt_scene, nxt_state, reward, done))
     cv2.imshow("Win", cv2.resize(replay_buffer.last().nxt_scene, display_shape[:2]))

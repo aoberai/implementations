@@ -3,13 +3,15 @@ from torch import nn
 import torch.nn.functional as F
 from datasets import load_dataset
 from transformers import BertTokenizerFast
+import os
 
 # config
 embedding_dim = 512
 head_size = 32
 num_head = 6
 block_ct = 6
-batch_size = 128
+batch_size = 1280
+context_length = 56
 
 class Transformer(nn.Module):
     def __init__(self):
@@ -68,7 +70,6 @@ class Transformer(nn.Module):
 # tokenization and ids
 
 device = torch.device("cuda")
-context_length = 56
 sst = load_dataset("sst2")
 tokenizer = BertTokenizerFast.from_pretrained("bert-base-uncased")
 x_batch, y_batch = [], [] # encodings, polarity  # TODO: convert to batches
@@ -95,14 +96,46 @@ x_batch = torch.LongTensor(x_batch) # (B, T)
 y_batch = torch.Tensor(y_batch)
 # print("\n")
 # print(x_batch)
-model = Transformer()
 
-for epoch in range(32): # not really an epoch 
-    polarity = model.forward(x_batch, y_batch)
+def save(amodel, aopt, model_path='attn_encoder.pt'):
+    torch.save({
+            'model_state_dict': amodel.state_dict(),
+            'optimizer_state_dict': aopt.state_dict(),
+            }, model_path)
+
+def load(model_path='attn_encoder.pt'):
+    try:
+        checkpoint = torch.load(model_path)
+        model = Transformer()
+        opt = torch.optim.Adam(model.parameters(), lr=1e-5)
+        try:
+            model.load_state_dict(checkpoint['model_state_dict'])
+            opt.load_state_dict(checkpoint['optimizer_state_dict'])
+            print('Found in checkpoint form w/ model and optimizer state')
+            print('Previously trained model weights loaded...')
+            return model, opt # TODO: return opt?
+        except TypeError:
+            print('Found in only static model state')
+            return checkpoint
+    except Exception as e:
+        print(e, e.args)
+        print('Model could not be loaded, does not exist')
+
+if "attn_encoder.pt" not in os.listdir("."):
+    model = Transformer()
     opt = torch.optim.Adam(model.parameters(), lr=1e-5)
-    loss = torch.nn.MSELoss()(polarity, y_batch)
-    opt.zero_grad()
-    loss.backward()
-    opt.step()
-    print(loss)
+    for epoch in range(28): # not really an epoch 
+        polarity = model.forward(x_batch, y_batch) # TODO: NEED TO SHUFFLE
+        loss = torch.nn.MSELoss()(polarity, y_batch)
+        opt.zero_grad()
+        loss.backward()
+        opt.step()
+        print(loss)
 
+    save(model, opt)
+else:
+    model, opt = load("attn_encoder.pt")
+    x = x_batch[-10:-1]
+    y = y_batch[-10:-1]
+    print(x, y)
+    print(model(x, y), y)

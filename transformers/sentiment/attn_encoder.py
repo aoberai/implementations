@@ -10,6 +10,7 @@ embedding_dim = 512
 head_size = 32
 num_head = 6
 block_ct = 6
+batch_size = 128
 
 # tokenization and ids
 
@@ -17,15 +18,15 @@ block_ct = 6
 context_length = 56
 sst = load_dataset("sst2")
 tokenizer = BertTokenizerFast.from_pretrained("bert-base-uncased")
-x_train, y_train = [], [] # encodings, polarity 
+x_batch, y_batch = [], [] # encodings, polarity  # TODO: convert to batches
 for i in range(len(sst["train"])):
     elem = sst["train"][i]
     sentence = elem["sentence"]
     sentence += "[PAD]" * (context_length - len(tokenizer.encode(sentence)))
     tokens = tokenizer.tokenize(sentence)
     encoded = tokenizer.encode(sentence)
-    x_train.append(encoded)
-    y_train.append(elem["label"])
+    x_batch.append(encoded)
+    y_batch.append([elem["label"]])
     decoded = tokenizer.decode(encoded)
 
     """
@@ -34,17 +35,22 @@ for i in range(len(sst["train"])):
     print("Encoded:", encoded)
     """
 
-    if i >= 1000:
+    if i >= batch_size: # batch_size
        break 
 
-x_train = torch.LongTensor(x_train) # (B, T)
-y_train = torch.Tensor(y_train)
+class Transformer():
+    def forward(x_batch):
+        pass
 
-# embeddings
-embedding = nn.Embedding(len(tokenizer), embedding_dim)(x_train) # (B, T, C
+x_batch = torch.LongTensor(x_batch) # (B, T)
+y_batch = torch.Tensor(y_batch)
 
 print("\n")
-print(x_train)
+print(x_batch)
+
+# embeddings
+embedding = nn.Embedding(len(tokenizer), embedding_dim)(x_batch) # (B, T, C
+
 print(embedding)
 print(embedding.shape)
 
@@ -77,3 +83,11 @@ polarity = nn.Linear(context_length * embedding_dim, 1)(x) # final fully connect
 
 print(polarity)
 print(polarity.shape)
+
+print(polarity.shape, y_batch.shape)
+
+opt = torch.optim.Adam(attn_encoder.parameters(), lr=3e-4)
+loss = torch.nn.MSELoss()(polarity, y_batch)
+opt.zero_grad()
+loss.backward()
+opt.step()

@@ -1,5 +1,6 @@
 import torch
 from torch import nn
+import torch.nn.functional as F
 from datasets import load_dataset
 from transformers import BertTokenizerFast
 
@@ -8,6 +9,7 @@ from transformers import BertTokenizerFast
 embedding_dim = 512
 head_size = 32
 num_head = 6
+block_ct = 6
 
 # tokenization and ids
 
@@ -46,21 +48,32 @@ print(x_train)
 print(embedding)
 print(embedding.shape)
 
-attention_vals = []
+class Block():
+    def forward(self, x):
+        attention_vals = []
 
-for j in range(num_head):
-    fcq, fck, fcv = nn.Linear(embedding_dim, head_size, bias=False)(embedding), nn.Linear(embedding_dim, head_size, bias=False)(embedding), nn.Linear(embedding_dim, head_size, bias=False)(embedding)  # (B, T, C -> head size) 
-    # print(fcq.shape, torch.transpose(fck, 1, 2).shape)
+        for j in range(num_head):
+            fcq, fck, fcv = nn.Linear(embedding_dim, head_size, bias=False)(x), nn.Linear(embedding_dim, head_size, bias=False)(x), nn.Linear(embedding_dim, head_size, bias=False)(x)  # (B, T, C -> head size) 
+            # print(fcq.shape, torch.transpose(fck, 1, 2).shape)
 
-    attention_score = nn.Softmax(dim=1)(torch.matmul(fcq, torch.transpose(fck, 1, 2)) * head_size**-0.5) # (B, T, T)
-    attention_val = torch.matmul(attention_score, fcv) # (B, T, C)
-    attention_vals.append(attention_val)
-    print(attention_val.shape)
+            attention_score = nn.Softmax(dim=1)(torch.matmul(fcq, torch.transpose(fck, 1, 2)) * head_size**-0.5) # (B, T, T)
+            attention_val = torch.matmul(attention_score, fcv) # (B, T, C)
+            attention_vals.append(attention_val)
+            # print(attention_val.shape)
 
-combined_heads = torch.cat(attention_vals, dim=-1)
-ff1, ff2 = nn.Linear(num_heads * head_size, head_size), nn.Linear(head_size, embedding_dim)
+        combined_heads = torch.cat(attention_vals, dim=-1)
+        ff1, ff2 = nn.Linear(num_head * head_size, head_size), nn.Linear(head_size, embedding_dim)
 
-ff = ff2(F.relu(ff1(combined_heads))) # feedforward part
+        ff = ff2(F.relu(ff1(combined_heads))) # feedforward part
 
-print(ff)
+        return ff
 
+x = embedding
+for i in range(block_ct):
+    x = Block().forward(x)
+
+x = torch.flatten(x, start_dim=1) # need to flatten token embedding dimension for whole sentence -> 1 polarity output
+polarity = nn.Linear(context_length * embedding_dim, 1)(x) # final fully connected
+
+print(polarity)
+print(polarity.shape)

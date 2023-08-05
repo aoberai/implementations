@@ -6,9 +6,9 @@ from transformers import BertTokenizerFast
 import os
 
 # config
-embedding_dim = 512
-head_size = 32
+embedding_dim = 540
 num_head = 6
+head_size = embedding_dim // num_head # concatenation of heads == embedding dim
 block_ct = 6
 batch_size = 1280
 context_length = 56
@@ -24,8 +24,8 @@ class Transformer(nn.Module):
                 self.fck = [nn.Linear(embedding_dim, head_size, bias=False) for i in range(num_head)]
                 self.fcv = [nn.Linear(embedding_dim, head_size, bias=False) for i in range(num_head)]
 
-                self.ff1 = nn.Linear(num_head * head_size, head_size)
-                self.ff2 = nn.Linear(head_size, embedding_dim)
+                self.ff1 = nn.Linear(embedding_dim, embedding_dim * 4)
+                self.ff2 = nn.Linear(embedding_dim * 4, embedding_dim)
 
             def forward(self, x):
                 attention_vals = []
@@ -126,11 +126,12 @@ if "attn_encoder.pt" not in os.listdir("."):
     opt = torch.optim.Adam(model.parameters(), lr=1e-5)
     for epoch in range(28): # not really an epoch 
         polarity = model.forward(x_batch, y_batch) # TODO: NEED TO SHUFFLE
-        loss = torch.nn.MSELoss()(polarity, y_batch)
+        mae_loss = torch.nn.L1Loss()(polarity, y_batch)
+        mse_loss = torch.nn.MSELoss()(polarity, y_batch) # MSELoss
+        print("MAE:", mae_loss.item(), "MSE:", mse_loss.item())
         opt.zero_grad()
-        loss.backward()
+        mse_loss.backward()
         opt.step()
-        print(loss)
 
     save(model, opt)
 else:

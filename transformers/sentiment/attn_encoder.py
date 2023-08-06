@@ -3,7 +3,12 @@ from torch import nn
 import torch.nn.functional as F
 from datasets import load_dataset
 from transformers import BertTokenizerFast
+import numpy as np
 import os
+import sys
+# np.set_printoptions(threshold=sys.maxsize)
+# torch.set_printoptions(profile="full")
+
 
 # config
 embedding_dim = 540 // 2
@@ -12,7 +17,7 @@ head_size = embedding_dim // num_head # concatenation of heads == embedding dim
 block_ct = 6
 batch_size = 1280
 context_length = 56 # max length example
-lr = 1e-4
+lr = 1e-5
 
 device = torch.device("cuda")
 
@@ -37,6 +42,7 @@ class Transformer(nn.Module):
                 for j in range(num_head):
                     q, k, v = self.fcq[j](x), self.fck[j](x), self.fcv[j](x)  # (B, T, C -> head size) 
                     attention_score = nn.Softmax(dim=1)(torch.matmul(q, torch.transpose(k, 1, 2)) * head_size**-0.5) # (B, T, T)
+                    # print(attention_score)
                     attention_val = torch.matmul(attention_score, v) # (B, T, C)
                     attention_vals.append(attention_val)
 
@@ -47,18 +53,32 @@ class Transformer(nn.Module):
                 return ff
 
         self.embedder = nn.Embedding(len(tokenizer), embedding_dim)
+        self.position_embedder = nn.Embedding(context_length, embedding_dim)
         self.blocks = [Block().to(device) for i in range(block_ct)]
+        self.ln = nn.LayerNorm(embedding_dim)
         self.ffc = nn.Linear(context_length * embedding_dim, 1) # final fully connected
         self.flatten = torch.nn.Flatten(start_dim=1)
 
     def forward(self, x_batch, y_batch):
         # embeddings
-        embedding = self.embedder(x_batch) # (B, T, C)
+        # pad_mask = [None if word == 0 else [0] * embedding_dim for word in sent for sent in x_batch]
+        embedding = self.embedder(x_batch) # (B, T, C) # TODO: turn all [PAD] to 0
 
-        x = embedding
+        """
+        # Turns [PAD] to 0
+        for i in range(len(x_batch)):
+            for j in range(len(x_batch[0])):
+                if x_batch[i][j] == 0:
+                   embedding[i][j] = torch.Tensor([0] * embedding_dim).to(device)
+        """
+
+        pos_embedding = self.position_embedder(torch.arange(x_batch.shape[1], device=device))
+        x = embedding + pos_embedding
+
         for i in range(block_ct):
             x = self.blocks[i].forward(x)
 
+        x = self.ln(x)
         x = self.flatten(x) # need to flatten token embedding dimension for whole sentence -> 1 polarity output
         polarity = self.ffc(x) # final fully connected
 
@@ -123,7 +143,8 @@ if "attn_encoder.pt" not in os.listdir("."):
         x_batch = x_batch[rand_order]
         y_batch = y_batch[rand_order]
         polarity = model.forward(x_batch, y_batch) # TODO: NEED TO SHUFFLE
-        print(polarity[-10:-1])
+        print(tokenizer.decode(x_batch[-1]), y_batch[-1])
+        print(polarity[-10:-1], y_batch[-10:-1])
         mae_loss = torch.nn.L1Loss()(polarity, y_batch)
         mse_loss = torch.nn.MSELoss()(polarity, y_batch) # MSELoss
         print("MAE:", mae_loss.item(), "MSE:", mse_loss.item())

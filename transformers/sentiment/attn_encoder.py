@@ -6,12 +6,12 @@ from transformers import BertTokenizerFast
 import os
 
 # config
-embedding_dim = 540
+embedding_dim = 540 // 2
 num_head = 6
 head_size = embedding_dim // num_head # concatenation of heads == embedding dim
 block_ct = 6
 batch_size = 1280
-context_length = 56
+context_length = 56 # max length example
 
 class Transformer(nn.Module):
     def __init__(self):
@@ -24,19 +24,17 @@ class Transformer(nn.Module):
                 self.fck = [nn.Linear(embedding_dim, head_size, bias=False) for i in range(num_head)]
                 self.fcv = [nn.Linear(embedding_dim, head_size, bias=False) for i in range(num_head)]
 
-                self.ff1 = nn.Linear(embedding_dim, embedding_dim * 4)
-                self.ff2 = nn.Linear(embedding_dim * 4, embedding_dim)
+                self.ff1 = nn.Linear(embedding_dim, 2 * head_size)
+                self.ff2 = nn.Linear(2 * head_size, embedding_dim)
 
             def forward(self, x):
                 attention_vals = []
 
                 for j in range(num_head):
                     q, k, v = self.fcq[j](x), self.fck[j](x), self.fcv[j](x)  # (B, T, C -> head size) 
-                    # print(fcq.shape, torch.transpose(fck, 1, 2).shape)
                     attention_score = nn.Softmax(dim=1)(torch.matmul(q, torch.transpose(k, 1, 2)) * head_size**-0.5) # (B, T, T)
                     attention_val = torch.matmul(attention_score, v) # (B, T, C)
                     attention_vals.append(attention_val)
-                    # print(attention_val.shape)
 
                 combined_heads = torch.cat(attention_vals, dim=-1)
 
@@ -52,18 +50,12 @@ class Transformer(nn.Module):
         # embeddings
         embedding = self.embedder(x_batch) # (B, T, C)
 
-        # print(embedding)
-        # print(embedding.shape)
         x = embedding
         for i in range(block_ct):
             x = self.blocks[i].forward(x)
 
         x = torch.flatten(x, start_dim=1) # need to flatten token embedding dimension for whole sentence -> 1 polarity output
         polarity = self.ffc(x) # final fully connected
-
-        # print(polarity)
-        # print(polarity.shape)
-        # print(polarity.shape, y_batch.shape)
 
         return polarity
 
@@ -94,8 +86,6 @@ for i in range(len(sst["train"])):
 
 x_batch = torch.LongTensor(x_batch) # (B, T)
 y_batch = torch.Tensor(y_batch)
-# print("\n")
-# print(x_batch)
 
 def save(amodel, aopt, model_path='attn_encoder.pt'):
     torch.save({
@@ -124,8 +114,12 @@ def load(model_path='attn_encoder.pt'):
 if "attn_encoder.pt" not in os.listdir("."):
     model = Transformer()
     opt = torch.optim.Adam(model.parameters(), lr=1e-5)
-    for epoch in range(28): # not really an epoch 
+    for epoch in range(28 * 10): # not really an epoch 
+        rand_order = torch.randperm(x_batch.size()[0])
+        x_batch = x_batch[rand_order]
+        y_batch = y_batch[rand_order]
         polarity = model.forward(x_batch, y_batch) # TODO: NEED TO SHUFFLE
+        print(polarity[-10:-1])
         mae_loss = torch.nn.L1Loss()(polarity, y_batch)
         mse_loss = torch.nn.MSELoss()(polarity, y_batch) # MSELoss
         print("MAE:", mae_loss.item(), "MSE:", mse_loss.item())

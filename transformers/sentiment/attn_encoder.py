@@ -12,6 +12,9 @@ head_size = embedding_dim // num_head # concatenation of heads == embedding dim
 block_ct = 6
 batch_size = 1280
 context_length = 56 # max length example
+lr = 1e-4
+
+device = torch.device("cuda")
 
 class Transformer(nn.Module):
     def __init__(self):
@@ -20,14 +23,15 @@ class Transformer(nn.Module):
         class Block(nn.Module):
             def __init__(self):
                 super(Block, self).__init__()
-                self.fcq = [nn.Linear(embedding_dim, head_size, bias=False) for i in range(num_head)]
-                self.fck = [nn.Linear(embedding_dim, head_size, bias=False) for i in range(num_head)]
-                self.fcv = [nn.Linear(embedding_dim, head_size, bias=False) for i in range(num_head)]
+                self.fcq = [nn.Linear(embedding_dim, head_size, bias=False, device=device) for i in range(num_head)]
+                self.fck = [nn.Linear(embedding_dim, head_size, bias=False, device=device) for i in range(num_head)]
+                self.fcv = [nn.Linear(embedding_dim, head_size, bias=False, device=device) for i in range(num_head)]
 
-                self.ff1 = nn.Linear(embedding_dim, 2 * head_size)
-                self.ff2 = nn.Linear(2 * head_size, embedding_dim)
+                self.ff1 = nn.Linear(embedding_dim, 6 * head_size)
+                self.ff2 = nn.Linear(6 * head_size, embedding_dim)
 
             def forward(self, x):
+                # self.to(device)
                 attention_vals = []
 
                 for j in range(num_head):
@@ -43,8 +47,9 @@ class Transformer(nn.Module):
                 return ff
 
         self.embedder = nn.Embedding(len(tokenizer), embedding_dim)
-        self.blocks = [Block() for i in range(block_ct)]
+        self.blocks = [Block().to(device) for i in range(block_ct)]
         self.ffc = nn.Linear(context_length * embedding_dim, 1) # final fully connected
+        self.flatten = torch.nn.Flatten(start_dim=1)
 
     def forward(self, x_batch, y_batch):
         # embeddings
@@ -54,14 +59,13 @@ class Transformer(nn.Module):
         for i in range(block_ct):
             x = self.blocks[i].forward(x)
 
-        x = torch.flatten(x, start_dim=1) # need to flatten token embedding dimension for whole sentence -> 1 polarity output
+        x = self.flatten(x) # need to flatten token embedding dimension for whole sentence -> 1 polarity output
         polarity = self.ffc(x) # final fully connected
 
         return polarity
 
 # tokenization and ids
 
-device = torch.device("cuda")
 sst = load_dataset("sst2")
 tokenizer = BertTokenizerFast.from_pretrained("bert-base-uncased")
 x_batch, y_batch = [], [] # encodings, polarity  # TODO: convert to batches
@@ -84,8 +88,8 @@ for i in range(len(sst["train"])):
     if i >= batch_size: # batch_size
        break 
 
-x_batch = torch.LongTensor(x_batch) # (B, T)
-y_batch = torch.Tensor(y_batch)
+x_batch = torch.LongTensor(x_batch).to(device) # (B, T)
+y_batch = torch.Tensor(y_batch).to(device)
 
 def save(amodel, aopt, model_path='attn_encoder.pt'):
     torch.save({
@@ -97,7 +101,7 @@ def load(model_path='attn_encoder.pt'):
     try:
         checkpoint = torch.load(model_path)
         model = Transformer()
-        opt = torch.optim.Adam(model.parameters(), lr=1e-5)
+        opt = torch.optim.Adam(model.parameters(), lr=lr)
         try:
             model.load_state_dict(checkpoint['model_state_dict'])
             opt.load_state_dict(checkpoint['optimizer_state_dict'])
@@ -112,8 +116,8 @@ def load(model_path='attn_encoder.pt'):
         print('Model could not be loaded, does not exist')
 
 if "attn_encoder.pt" not in os.listdir("."):
-    model = Transformer()
-    opt = torch.optim.Adam(model.parameters(), lr=1e-5)
+    model = Transformer().to(device)
+    opt = torch.optim.AdamW(model.parameters(), lr=lr)
     for epoch in range(28 * 10): # not really an epoch 
         rand_order = torch.randperm(x_batch.size()[0])
         x_batch = x_batch[rand_order]

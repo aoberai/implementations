@@ -23,11 +23,11 @@ cross entropy loss, not mse
 
 
 # config
-embedding_dim = 540 // 2
+embedding_dim = 540
 num_head = 6
 head_size = embedding_dim // num_head # concatenation of heads == embedding dim
 block_ct = 2
-batch_size = 512 * 3
+batch_size = 512
 context_length = 80 # max length example
 lr = 1e-4
 
@@ -47,6 +47,9 @@ class Transformer(nn.Module):
                 self.ff1 = nn.Linear(embedding_dim, 6 * head_size)
                 self.ff2 = nn.Linear(6 * head_size, embedding_dim)
 
+                self.ln1 = nn.LayerNorm(embedding_dim)
+                self.ln2 = nn.LayerNorm(embedding_dim)
+
             def forward(self, x):
                 # self.to(device)
                 attention_vals = []
@@ -60,14 +63,16 @@ class Transformer(nn.Module):
 
                 combined_heads = torch.cat(attention_vals, dim=-1)
 
-                ff = self.ff2(F.relu(self.ff1(combined_heads))) # feedforward part
+                x = combined_heads + x
+                x = self.ln1(x)
+
+                ff = self.ln2(self.ff2(F.relu(self.ff1(x))) + x) # feedforward part
 
                 return ff
 
         self.embedder = nn.Embedding(len(tokenizer), embedding_dim)
         self.position_embedder = nn.Embedding(context_length, embedding_dim)
         self.blocks = [Block().to(device) for i in range(block_ct)]
-        self.ln = nn.LayerNorm(embedding_dim)
         self.ffc = nn.Linear(context_length * embedding_dim, 1) # final fully connected
         self.flatten = torch.nn.Flatten(start_dim=1)
 
@@ -90,7 +95,6 @@ class Transformer(nn.Module):
         for i in range(block_ct):
             x = self.blocks[i].forward(x)
 
-        # x = self.ln(x) # TODO: add in block as well i think
         x = self.flatten(x) # need to flatten token embedding dimension for whole sentence -> 1 polarity output
         polarity = self.ffc(x) # final fully connected
 
@@ -151,13 +155,15 @@ if "x.pt" not in os.listdir(".") or "y.pt" not in os.listdir("."):
             y_train.append(copy.copy(y_batch_tmp))
             x_batch_tmp.clear()
             y_batch_tmp.clear()
+        # if i > 1000:
+        #     break
 
     x_train = torch.LongTensor(x_train).to(device)
     y_train = torch.Tensor(y_train).to(device)
     torch.save(x_train, "x.pt")
     torch.save(y_train, "y.pt")
 else:
-    x_train, y_train = np.load("x.pt").to(device), np.load("y.pt").to(device)
+    x_train, y_train = torch.load("x.pt").to(device), torch.load("y.pt").to(device)
 
 # if "attn_encoder.pt" not in os.listdir("."):
 model = Transformer().to(device)

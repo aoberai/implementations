@@ -9,6 +9,17 @@ import sys
 # np.set_printoptions(threshold=sys.maxsize)
 # torch.set_printoptions(profile="full")
 
+"""
+TODO:
+dynamic save
+skip connections
+positional embedding
+batches
+test set
+fixed inference
+cross entropy loss, not mse
+"""
+
 
 # config
 embedding_dim = 540 // 2
@@ -17,7 +28,7 @@ head_size = embedding_dim // num_head # concatenation of heads == embedding dim
 block_ct = 2
 batch_size = 1280 * 2
 context_length = 57 # max length example
-lr = 1e-5
+lr = 1e-4
 
 device = torch.device("cuda")
 
@@ -96,10 +107,9 @@ for i in range(len(sst["train"])):
     tokens = tokenizer.tokenize(sentence)
     encoded = tokenizer.encode(sentence)
     x_batch.append(encoded)
-    # y_batch.append([elem["label"]])
+    y_batch.append([elem["label"]])
     print(sentence)
-    # y_batch.append([1 if True in [True if word in sentence.split() else False for word in ["the", "and", "but", "because", "why", "a", "or", "he", "she", "of", "for", "is"]] else 0])
-    y_batch.append([1 if True in [True if word in sentence.split() else False for word in ["the", "and", "but", "or", "a", "is"]] else 0])
+    # y_batch.append([1 if True in [True if word in sentence.split() else False for word in ["the", "and", "but", "or", "a", "is"]] else 0])
     print(y_batch[-1])
     decoded = tokenizer.decode(encoded)
 
@@ -110,8 +120,7 @@ for i in range(len(sst["train"])):
     """
 
     if i >= batch_size: # batch_size
-       break 
-# exit(0)
+       break
 
 
 x_batch = torch.LongTensor(x_batch).to(device) # (B, T)
@@ -152,7 +161,7 @@ if "attn_encoder.pt" not in os.listdir("."):
         print(*[tokenizer.decode(x_batch[i]).replace("[PAD]", "") for i in range(-10, -1)], polarity[-10:-1], y_batch[-10:-1], "\n\n\n\n\n",  sep='\n')
         mae_loss = torch.nn.L1Loss()(polarity, y_batch).to(device)
         mse_loss = torch.nn.MSELoss()(polarity, y_batch).to(device)
-        print("MAE:", mae_loss.item(), "MSE:", mse_loss.item())
+        print("ITER:", itr, "MAE:", mae_loss.item(), "MSE:", mse_loss.item())
         opt.zero_grad()
         mse_loss.backward()
         opt.step()

@@ -6,6 +6,7 @@ from transformers import BertTokenizerFast
 import numpy as np
 import os
 import sys
+import copy
 # np.set_printoptions(threshold=sys.maxsize)
 # torch.set_printoptions(profile="full")
 
@@ -17,7 +18,7 @@ positional embedding
 batches
 test set
 fixed inference
-cross entropy loss, not mse
+cross entropy loss, not mse 
 """
 
 
@@ -26,8 +27,8 @@ embedding_dim = 540 // 2
 num_head = 6
 head_size = embedding_dim // num_head # concatenation of heads == embedding dim
 block_ct = 2
-batch_size = 1280 * 2
-context_length = 57 # max length example
+batch_size = 512
+context_length = 80 # max length example
 lr = 1e-4
 
 device = torch.device("cuda")
@@ -95,37 +96,6 @@ class Transformer(nn.Module):
 
         return polarity
 
-# tokenization and ids
-
-sst = load_dataset("sst2")
-tokenizer = BertTokenizerFast.from_pretrained("bert-base-uncased")
-x_batch, y_batch = [], [] # encodings, polarity  # TODO: convert to batches
-for i in range(len(sst["train"])):
-    elem = sst["train"][i]
-    sentence = elem["sentence"]
-    sentence += "[PAD]" * (context_length - len(tokenizer.encode(sentence)))
-    tokens = tokenizer.tokenize(sentence)
-    encoded = tokenizer.encode(sentence)
-    x_batch.append(encoded)
-    y_batch.append([elem["label"]])
-    print(sentence)
-    # y_batch.append([1 if True in [True if word in sentence.split() else False for word in ["the", "and", "but", "or", "a", "is"]] else 0])
-    print(y_batch[-1])
-    decoded = tokenizer.decode(encoded)
-
-    """
-    print("Sentence:", sentence)
-    print("Tokens:", tokens)
-    print("Encoded:", encoded)
-    """
-
-    if i >= batch_size: # batch_size
-       break
-
-
-x_batch = torch.LongTensor(x_batch).to(device) # (B, T)
-y_batch = torch.Tensor(y_batch).to(device)
-
 def save(amodel, aopt, model_path='attn_encoder.pt'):
     torch.save({
             'model_state_dict': amodel.state_dict(),
@@ -150,27 +120,76 @@ def load(model_path='attn_encoder.pt'):
         print(e, e.args)
         print('Model could not be loaded, does not exist')
 
-if "attn_encoder.pt" not in os.listdir("."):
-    model = Transformer().to(device)
-    opt = torch.optim.AdamW(model.parameters(), lr=lr)
-    for itr in range(28000):
+
+# tokenization and ids
+
+tokenizer = BertTokenizerFast.from_pretrained("bert-base-uncased")
+x_train, y_train = [], []
+if "x.npy" not in os.listdir(".") or "y.npy" not in os.listdir("."):
+    sst = load_dataset("sst2")
+    x_batch_tmp, y_batch_tmp = [], []
+    for i in range(1, len(sst["train"])):
+        elem = sst["train"][i]
+        sentence = elem["sentence"]
+        sentence += "[PAD]" * (context_length - len(tokenizer.encode(sentence)))
+        tokens = tokenizer.tokenize(sentence)
+        encoded = tokenizer.encode(sentence)
+        x_batch_tmp.append(encoded)
+        # y_batch_tmp.append([elem["label"]])
+        y_batch.append([1 if True in [True if word in sentence.split() else False for word in ["the", "and", "but", "or", "a", "is"]] else 0])
+        print(sentence)
+        print(y_batch_tmp[-1])
+        decoded = tokenizer.decode(encoded)
+
+        """
+        print("Sentence:", sentence)
+        print("Tokens:", tokens)
+        print("Encoded:", encoded)
+        """
+        if (i % batch_size == 0 and i != 0):
+            x_train.append(copy.copy(x_batch_tmp))
+            y_train.append(copy.copy(y_batch_tmp))
+            x_batch_tmp.clear()
+            y_batch_tmp.clear()
+
+    np.save("x.npy", np.array(x_train))
+    np.save("y.npy", np.array(y_train))
+else:
+    x_train, y_train = np.load("x.npy", allow_pickle=True), np.load("y.npy", allow_pickle=True)
+
+# if "attn_encoder.pt" not in os.listdir("."):
+model = Transformer().to(device)
+opt = torch.optim.AdamW(model.parameters(), lr=lr)
+for epoch in range(28000):
+    for batch_idx in range(len(x_train)):
+        x_batch, y_batch = x_train[batch_idx], y_train[batch_idx]
+        x_batch = torch.LongTensor(x_batch).to(device) # (B, T)
+        y_batch = torch.Tensor(y_batch).to(device)
+
         rand_order = torch.randperm(x_batch.size()[0])
         x_batch = x_batch[rand_order]
         y_batch = y_batch[rand_order]
+
         polarity = model.forward(x_batch, y_batch)
         print(*[tokenizer.decode(x_batch[i]).replace("[PAD]", "") for i in range(-10, -1)], polarity[-10:-1], y_batch[-10:-1], "\n\n\n\n\n",  sep='\n')
         mae_loss = torch.nn.L1Loss()(polarity, y_batch).to(device)
         mse_loss = torch.nn.MSELoss()(polarity, y_batch).to(device)
-        print("ITER:", itr, "MAE:", mae_loss.item(), "MSE:", mse_loss.item())
+        print("EPOCH:", epoch, "MAE:", mae_loss.item(), "MSE:", mse_loss.item())
         opt.zero_grad()
         mse_loss.backward()
         opt.step()
 
-    save(model, opt)
+        save(model, opt)
+
+'''
 else:
     print("Inference Time")
+    """
     model, opt = load("attn_encoder.pt")
     x = x_batch[-10:-1]
     y = y_batch[-10:-1]
     print(x, y)
     print(model(x, y), y)
+    """
+'''
+

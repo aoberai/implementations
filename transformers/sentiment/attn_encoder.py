@@ -27,7 +27,7 @@ embedding_dim = 540 // 2
 num_head = 6
 head_size = embedding_dim // num_head # concatenation of heads == embedding dim
 block_ct = 2
-batch_size = 512
+batch_size = 512 * 3
 context_length = 80 # max length example
 lr = 1e-4
 
@@ -125,7 +125,7 @@ def load(model_path='attn_encoder.pt'):
 
 tokenizer = BertTokenizerFast.from_pretrained("bert-base-uncased")
 x_train, y_train = [], []
-if "x.npy" not in os.listdir(".") or "y.npy" not in os.listdir("."):
+if "x.pt" not in os.listdir(".") or "y.pt" not in os.listdir("."):
     sst = load_dataset("sst2")
     x_batch_tmp, y_batch_tmp = [], []
     for i in range(1, len(sst["train"])):
@@ -136,7 +136,7 @@ if "x.npy" not in os.listdir(".") or "y.npy" not in os.listdir("."):
         encoded = tokenizer.encode(sentence)
         x_batch_tmp.append(encoded)
         # y_batch_tmp.append([elem["label"]])
-        y_batch.append([1 if True in [True if word in sentence.split() else False for word in ["the", "and", "but", "or", "a", "is"]] else 0])
+        y_batch_tmp.append([1 if True in [True if word in sentence.split() else False for word in ["the", "and", "but", "or", "a", "is"]] else 0])
         print(sentence)
         print(y_batch_tmp[-1])
         decoded = tokenizer.decode(encoded)
@@ -152,10 +152,12 @@ if "x.npy" not in os.listdir(".") or "y.npy" not in os.listdir("."):
             x_batch_tmp.clear()
             y_batch_tmp.clear()
 
-    np.save("x.npy", np.array(x_train))
-    np.save("y.npy", np.array(y_train))
+    x_train = torch.LongTensor(x_train).to(device)
+    y_train = torch.Tensor(y_train).to(device)
+    torch.save(x_train, "x.pt")
+    torch.save(y_train, "y.pt")
 else:
-    x_train, y_train = np.load("x.npy", allow_pickle=True), np.load("y.npy", allow_pickle=True)
+    x_train, y_train = np.load("x.pt").to(device), np.load("y.pt").to(device)
 
 # if "attn_encoder.pt" not in os.listdir("."):
 model = Transformer().to(device)
@@ -163,8 +165,9 @@ opt = torch.optim.AdamW(model.parameters(), lr=lr)
 for epoch in range(28000):
     for batch_idx in range(len(x_train)):
         x_batch, y_batch = x_train[batch_idx], y_train[batch_idx]
-        x_batch = torch.LongTensor(x_batch).to(device) # (B, T)
-        y_batch = torch.Tensor(y_batch).to(device)
+
+        # x_batch = torch.LongTensor(x_batch).to(device) # (B, T)
+        # y_batch = torch.Tensor(y_batch).to(device)
 
         rand_order = torch.randperm(x_batch.size()[0])
         x_batch = x_batch[rand_order]

@@ -184,7 +184,7 @@ if "attn_encoder.pt" not in os.listdir("."):
             mse_loss.backward()
             opt.step()
 
-            save(model, opt)
+        save(model, opt)
 
 else:
     print("Inference Time")

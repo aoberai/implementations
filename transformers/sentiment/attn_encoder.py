@@ -13,7 +13,7 @@ import time
 
 """
 TODO:
-test set
+val set
 fixed inference
 cross entropy loss, not mse 
 regularization
@@ -28,6 +28,7 @@ block_ct = 6
 batch_size = 512
 context_length = 80 # max length example
 lr = 1e-4
+val_size = 1024 # 11
 
 device = torch.device("cuda")
 
@@ -126,8 +127,8 @@ def load(model_path='attn_encoder.pt'):
 # tokenization and ids
 
 tokenizer = BertTokenizerFast.from_pretrained("bert-base-uncased")
-x_train, y_train, x_test, y_test = [], [], [], []
-if "x.pt" not in os.listdir(".") or "y.pt" not in os.listdir(".") or "x_test.pt" not in os.listdir(".") or "y_test.pt" not in os.listdir("."):
+x_train, y_train, x_val, y_val = [], [], [], []
+if "x.pt" not in os.listdir(".") or "y.pt" not in os.listdir(".") or "x_val.pt" not in os.listdir(".") or "y_val.pt" not in os.listdir("."):
     sst = load_dataset("sst2")
     x_batch_tmp, y_batch_tmp = [], []
     print("train dataset")
@@ -157,16 +158,16 @@ if "x.pt" not in os.listdir(".") or "y.pt" not in os.listdir(".") or "x_test.pt"
             y_batch_tmp.clear()
         # if i > 1000:
         #     break
-    print("test dataset")
+    print("val dataset")
     time.sleep(3)
-    for i in range(0, len(sst["test"])):
-        elem = sst["test"][i]
+    for i in range(0, len(sst["validation"])):
+        elem = sst["validation"][i]
         sentence = elem["sentence"]
         sentence += "[PAD]" * (context_length - len(tokenizer.encode(sentence)))
         # tokens = tokenizer.tokenize(sentence)
         encoded = tokenizer.encode(sentence)
-        x_test.append(encoded)
-        y_test.append([elem["label"]])
+        x_val.append(encoded)
+        y_val.append([elem["label"]])
         # y_batch_tmp.append([1 if True in [True if word in sentence.split() else False for word in ["the", "and", "but", "or", "a", "is"]] else 0])
         print(sentence)
         print(y_batch_tmp[-1])
@@ -182,20 +183,25 @@ if "x.pt" not in os.listdir(".") or "y.pt" not in os.listdir(".") or "x_test.pt"
     y_train = torch.Tensor(y_train).to(device)
 
 
-    x_test = torch.LongTensor(x_test).to(device)
-    y_test = torch.Tensor(y_test).to(device)
+    x_val = torch.LongTensor(x_val).to(device)
+    y_val = torch.Tensor(y_val).to(device)
 
     torch.save(x_train, "x.pt")
     torch.save(y_train, "y.pt")
 
-    torch.save(x_test, "x_test.pt")
-    torch.save(y_test, "y_test.pt")
+    torch.save(x_val, "x_val.pt")
+    torch.save(y_val, "y_val.pt")
 else:
     x_train, y_train = torch.load("x.pt").to(device), torch.load("y.pt").to(device)
-    x_test, y_test = torch.load("x_test.pt").to(device), torch.load("y_test.pt").to(device)
+    x_val, y_val = torch.load("x_val.pt").to(device), torch.load("y_val.pt").to(device)
 
-    print(x_train.shape, x_test.shape)
-    print(y_train.shape, y_test.shape)
+    rand_order = torch.randint(len(x_val), (val_size,))
+    x_val = x_val[rand_order]
+    y_val = y_val[rand_order]
+
+    print(x_train.shape, y_train.shape)
+    print(x_val.shape, y_val.shape)
+
 
 
 model = Transformer().to(device)
@@ -224,9 +230,12 @@ while True:
                     mse_loss.backward()
                     opt.step()
 
-                polarity_test = model.forward(x_test).to(device)
-                print("\n\n\n\n\n", *[tokenizer.decode(x_test[i]).replace("[PAD]", "") for i in range(-10, -1)], polarity_test[-10:-1], y_test[-10:-1],  sep='\n')
-                print("EPOCH:", epoch, "TRAIN MSE:", sum(batch_loss_avg)/len(batch_loss_avg), "TEST MSE:", torch.nn.MSELoss()(polarity_test, y_test).item(), "\n\n\n\n\n")
+                # torch.cuda.empty_cache()
+
+                with torch.no_grad():
+                    polarity_val = model.forward(x_val).to(device)
+                print("\n\n\n\n\n", *[tokenizer.decode(x_val[i]).replace("[PAD]", "") for i in range(-10, -1)], polarity_val[-10:-1], y_val[-10:-1],  sep='\n')
+                print("EPOCH:", epoch, "TRAIN MSE:", sum(batch_loss_avg)/len(batch_loss_avg), "TEST MSE:", torch.nn.MSELoss()(polarity_val, y_val).item(), "\n\n\n\n\n")
                 save(model, opt)
 
         except KeyboardInterrupt as e:

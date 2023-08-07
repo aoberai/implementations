@@ -239,13 +239,14 @@ while True:
                 save(model, opt)
 
         except KeyboardInterrupt as e:
-            print("Inference Time")
-            while True:
-                sentence = input("Sentence? : ")
-                print()
-                sentence += "[PAD]" * (context_length - len(tokenizer.encode(sentence)))
-                print(sentence)
-                print("Polarity:", model.forward(torch.LongTensor([tokenizer.encode(sentence)]).to(device)))
+            with torch.no_grad():
+                print("Inference Time")
+                while True:
+                    sentence = input("Sentence? : ")
+                    print()
+                    sentence += "[PAD]" * (context_length - len(tokenizer.encode(sentence)))
+                    print(sentence)
+                    print("Polarity:", model.forward(torch.LongTensor([tokenizer.encode(sentence)]).to(device)))
 
     except KeyboardInterrupt as e:
         print("\n\n\nBack to Training\n\n\n")

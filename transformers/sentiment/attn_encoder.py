@@ -12,10 +12,6 @@ import copy
 
 """
 TODO:
-dynamic save
-skip connections
-positional embedding
-batches
 test set
 fixed inference
 cross entropy loss, not mse 
@@ -26,7 +22,7 @@ cross entropy loss, not mse
 embedding_dim = 540
 num_head = 6
 head_size = embedding_dim // num_head # concatenation of heads == embedding dim
-block_ct = 2
+block_ct = 6
 batch_size = 512
 context_length = 80 # max length example
 lr = 1e-4
@@ -76,7 +72,7 @@ class Transformer(nn.Module):
         self.ffc = nn.Linear(context_length * embedding_dim, 1) # final fully connected
         self.flatten = torch.nn.Flatten(start_dim=1)
 
-    def forward(self, x_batch, y_batch):
+    def forward(self, x_batch):
         # embeddings
         # pad_mask = [None if word == 0 else [0] * embedding_dim for word in sent for sent in x_batch]
         embedding = self.embedder(x_batch) # (B, T, C) # TODO: turn all [PAD] to 0
@@ -139,8 +135,8 @@ if "x.pt" not in os.listdir(".") or "y.pt" not in os.listdir("."):
         tokens = tokenizer.tokenize(sentence)
         encoded = tokenizer.encode(sentence)
         x_batch_tmp.append(encoded)
-        # y_batch_tmp.append([elem["label"]])
-        y_batch_tmp.append([1 if True in [True if word in sentence.split() else False for word in ["the", "and", "but", "or", "a", "is"]] else 0])
+        y_batch_tmp.append([elem["label"]])
+        # y_batch_tmp.append([1 if True in [True if word in sentence.split() else False for word in ["the", "and", "but", "or", "a", "is"]] else 0])
         print(sentence)
         print(y_batch_tmp[-1])
         decoded = tokenizer.decode(encoded)
@@ -165,40 +161,38 @@ if "x.pt" not in os.listdir(".") or "y.pt" not in os.listdir("."):
 else:
     x_train, y_train = torch.load("x.pt").to(device), torch.load("y.pt").to(device)
 
-# if "attn_encoder.pt" not in os.listdir("."):
-model = Transformer().to(device)
-opt = torch.optim.AdamW(model.parameters(), lr=lr)
-for epoch in range(28000):
-    for batch_idx in range(len(x_train)):
-        x_batch, y_batch = x_train[batch_idx], y_train[batch_idx]
+if "attn_encoder.pt" not in os.listdir("."):
+    model = Transformer().to(device)
+    opt = torch.optim.AdamW(model.parameters(), lr=lr)
+    for epoch in range(28000):
+        for batch_idx in range(len(x_train)):
+            x_batch, y_batch = x_train[batch_idx], y_train[batch_idx]
 
-        # x_batch = torch.LongTensor(x_batch).to(device) # (B, T)
-        # y_batch = torch.Tensor(y_batch).to(device)
+            # x_batch = torch.LongTensor(x_batch).to(device) # (B, T)
+            # y_batch = torch.Tensor(y_batch).to(device)
 
-        rand_order = torch.randperm(x_batch.size()[0])
-        x_batch = x_batch[rand_order]
-        y_batch = y_batch[rand_order]
+            rand_order = torch.randperm(x_batch.size()[0])
+            x_batch = x_batch[rand_order]
+            y_batch = y_batch[rand_order]
 
-        polarity = model.forward(x_batch, y_batch)
-        print(*[tokenizer.decode(x_batch[i]).replace("[PAD]", "") for i in range(-10, -1)], polarity[-10:-1], y_batch[-10:-1], "\n\n\n\n\n",  sep='\n')
-        mae_loss = torch.nn.L1Loss()(polarity, y_batch).to(device)
-        mse_loss = torch.nn.MSELoss()(polarity, y_batch).to(device)
-        print("EPOCH:", epoch, "MAE:", mae_loss.item(), "MSE:", mse_loss.item())
-        opt.zero_grad()
-        mse_loss.backward()
-        opt.step()
+            polarity = model.forward(x_batch)
+            print(*[tokenizer.decode(x_batch[i]).replace("[PAD]", "") for i in range(-10, -1)], polarity[-10:-1], y_batch[-10:-1], "\n\n\n\n\n",  sep='\n')
+            mae_loss = torch.nn.L1Loss()(polarity, y_batch).to(device)
+            mse_loss = torch.nn.MSELoss()(polarity, y_batch).to(device)
+            print("EPOCH:", epoch, "MAE:", mae_loss.item(), "MSE:", mse_loss.item())
+            opt.zero_grad()
+            mse_loss.backward()
+            opt.step()
 
-        save(model, opt)
+            save(model, opt)
 
-'''
 else:
     print("Inference Time")
-    """
-    model, opt = load("attn_encoder.pt")
-    x = x_batch[-10:-1]
-    y = y_batch[-10:-1]
-    print(x, y)
-    print(model(x, y), y)
-    """
-'''
-
+    model, opt = load("model.pt")
+    model.to(device)
+    while True:
+        sentence = input("Sentence? : ")
+        print()
+        sentence += "[PAD]" * (context_length - len(tokenizer.encode(sentence)))
+        print(sentence)
+        print("Polarity:", model.forward(torch.LongTensor([tokenizer.encode(sentence)]).to(device)))

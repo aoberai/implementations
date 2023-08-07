@@ -14,9 +14,9 @@ import sys
 embedding_dim = 540 // 2
 num_head = 6
 head_size = embedding_dim // num_head # concatenation of heads == embedding dim
-block_ct = 6
-batch_size = 1280
-context_length = 56 # max length example
+block_ct = 2
+batch_size = 1280 * 2
+context_length = 57 # max length example
 lr = 1e-5
 
 device = torch.device("cuda")
@@ -65,7 +65,7 @@ class Transformer(nn.Module):
         embedding = self.embedder(x_batch) # (B, T, C) # TODO: turn all [PAD] to 0
 
         """
-        # Turns [PAD] to 0
+        # Turns [PAD] to 0 # TODO: this is too slow
         for i in range(len(x_batch)):
             for j in range(len(x_batch[0])):
                 if x_batch[i][j] == 0:
@@ -78,7 +78,7 @@ class Transformer(nn.Module):
         for i in range(block_ct):
             x = self.blocks[i].forward(x)
 
-        x = self.ln(x)
+        # x = self.ln(x) # TODO: add in block as well i think
         x = self.flatten(x) # need to flatten token embedding dimension for whole sentence -> 1 polarity output
         polarity = self.ffc(x) # final fully connected
 
@@ -96,7 +96,11 @@ for i in range(len(sst["train"])):
     tokens = tokenizer.tokenize(sentence)
     encoded = tokenizer.encode(sentence)
     x_batch.append(encoded)
-    y_batch.append([elem["label"]])
+    # y_batch.append([elem["label"]])
+    print(sentence)
+    # y_batch.append([1 if True in [True if word in sentence.split() else False for word in ["the", "and", "but", "because", "why", "a", "or", "he", "she", "of", "for", "is"]] else 0])
+    y_batch.append([1 if True in [True if word in sentence.split() else False for word in ["the", "and", "but", "or", "a", "is"]] else 0])
+    print(y_batch[-1])
     decoded = tokenizer.decode(encoded)
 
     """
@@ -107,6 +111,8 @@ for i in range(len(sst["train"])):
 
     if i >= batch_size: # batch_size
        break 
+# exit(0)
+
 
 x_batch = torch.LongTensor(x_batch).to(device) # (B, T)
 y_batch = torch.Tensor(y_batch).to(device)
@@ -138,15 +144,14 @@ def load(model_path='attn_encoder.pt'):
 if "attn_encoder.pt" not in os.listdir("."):
     model = Transformer().to(device)
     opt = torch.optim.AdamW(model.parameters(), lr=lr)
-    for epoch in range(28 * 10): # not really an epoch 
+    for itr in range(28000):
         rand_order = torch.randperm(x_batch.size()[0])
         x_batch = x_batch[rand_order]
         y_batch = y_batch[rand_order]
-        polarity = model.forward(x_batch, y_batch) # TODO: NEED TO SHUFFLE
-        print(tokenizer.decode(x_batch[-1]), y_batch[-1])
-        print(polarity[-10:-1], y_batch[-10:-1])
-        mae_loss = torch.nn.L1Loss()(polarity, y_batch)
-        mse_loss = torch.nn.MSELoss()(polarity, y_batch) # MSELoss
+        polarity = model.forward(x_batch, y_batch)
+        print(*[tokenizer.decode(x_batch[i]).replace("[PAD]", "") for i in range(-10, -1)], polarity[-10:-1], y_batch[-10:-1], "\n\n\n\n\n",  sep='\n')
+        mae_loss = torch.nn.L1Loss()(polarity, y_batch).to(device)
+        mse_loss = torch.nn.MSELoss()(polarity, y_batch).to(device)
         print("MAE:", mae_loss.item(), "MSE:", mse_loss.item())
         opt.zero_grad()
         mse_loss.backward()
@@ -154,6 +159,7 @@ if "attn_encoder.pt" not in os.listdir("."):
 
     save(model, opt)
 else:
+    print("Inference Time")
     model, opt = load("attn_encoder.pt")
     x = x_batch[-10:-1]
     y = y_batch[-10:-1]

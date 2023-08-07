@@ -161,38 +161,43 @@ if "x.pt" not in os.listdir(".") or "y.pt" not in os.listdir("."):
 else:
     x_train, y_train = torch.load("x.pt").to(device), torch.load("y.pt").to(device)
 
-if "attn_encoder.pt" not in os.listdir("."):
-    model = Transformer().to(device)
-    opt = torch.optim.AdamW(model.parameters(), lr=lr)
-    for epoch in range(28000):
-        for batch_idx in range(len(x_train)):
-            x_batch, y_batch = x_train[batch_idx], y_train[batch_idx]
 
-            # x_batch = torch.LongTensor(x_batch).to(device) # (B, T)
-            # y_batch = torch.Tensor(y_batch).to(device)
+model = Transformer().to(device)
+opt = torch.optim.AdamW(model.parameters(), lr=lr)
+while True:
+    try:
+        try:
+            for epoch in range(28000):
+                for batch_idx in range(len(x_train)):
+                    x_batch, y_batch = x_train[batch_idx], y_train[batch_idx]
 
-            rand_order = torch.randperm(x_batch.size()[0])
-            x_batch = x_batch[rand_order]
-            y_batch = y_batch[rand_order]
+                    # x_batch = torch.LongTensor(x_batch).to(device) # (B, T)
+                    # y_batch = torch.Tensor(y_batch).to(device)
 
-            polarity = model.forward(x_batch)
-            print(*[tokenizer.decode(x_batch[i]).replace("[PAD]", "") for i in range(-10, -1)], polarity[-10:-1], y_batch[-10:-1], "\n\n\n\n\n",  sep='\n')
-            mae_loss = torch.nn.L1Loss()(polarity, y_batch).to(device)
-            mse_loss = torch.nn.MSELoss()(polarity, y_batch).to(device)
-            print("EPOCH:", epoch, "MAE:", mae_loss.item(), "MSE:", mse_loss.item())
-            opt.zero_grad()
-            mse_loss.backward()
-            opt.step()
+                    rand_order = torch.randperm(x_batch.size()[0])
+                    x_batch = x_batch[rand_order]
+                    y_batch = y_batch[rand_order]
 
-        save(model, opt)
+                    polarity = model.forward(x_batch)
+                    print(*[tokenizer.decode(x_batch[i]).replace("[PAD]", "") for i in range(-10, -1)], polarity[-10:-1], y_batch[-10:-1], "\n\n\n\n\n",  sep='\n')
+                    mae_loss = torch.nn.L1Loss()(polarity, y_batch).to(device)
+                    mse_loss = torch.nn.MSELoss()(polarity, y_batch).to(device)
+                    print("EPOCH:", epoch, "MAE:", mae_loss.item(), "MSE:", mse_loss.item())
+                    opt.zero_grad()
+                    mse_loss.backward()
+                    opt.step()
 
-else:
-    print("Inference Time")
-    model, opt = load("model.pt")
-    model.to(device)
-    while True:
-        sentence = input("Sentence? : ")
-        print()
-        sentence += "[PAD]" * (context_length - len(tokenizer.encode(sentence)))
-        print(sentence)
-        print("Polarity:", model.forward(torch.LongTensor([tokenizer.encode(sentence)]).to(device)))
+                save(model, opt)
+
+        except KeyboardInterrupt as e:
+            print("Inference Time")
+            while True:
+                sentence = input("Sentence? : ")
+                print()
+                sentence += "[PAD]" * (context_length - len(tokenizer.encode(sentence)))
+                print(sentence)
+                print("Polarity:", model.forward(torch.LongTensor([tokenizer.encode(sentence)]).to(device)))
+
+    except KeyboardInterrupt as e:
+        print("\n\n\nBack to Training\n\n\n")
+        pass
